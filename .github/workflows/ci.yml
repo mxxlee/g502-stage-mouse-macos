@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust format
+        working-directory: work/opengcontrol
+        run: cargo fmt --all -- --check
+      - name: Rust tests
+        working-directory: work/opengcontrol
+        run: cargo test --workspace --locked
+      - name: Build helper
+        working-directory: work/opengcontrol
+        run: cargo build --release --locked
+      - name: Build and verify app
+        run: ./build.command

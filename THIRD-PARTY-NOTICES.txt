@@ -1,0 +1,28 @@
+G502 Stage Mouse includes an opengcontrol binary.
+
+opengcontrol
+Copyright (c) its contributors
+https://github.com/kasik96/opengcontrol
+
+The project declares the dual license MIT OR Apache-2.0 in its Cargo package
+metadata. This build includes the G502 X LIGHTSPEED support from pull request #1
+by Louis Abraham and the opengcontrol contributors.
+
+The source code used by this repository is vendored in work/opengcontrol. This
+distribution elects the MIT option; the applicable license text is preserved in
+work/opengcontrol/LICENSES/MIT.txt.
+
+Protocol behavior for Logitech HID++ MouseButtonSpy (feature 0x8110) was
+cross-checked against cvuchener/hidpp:
+https://github.com/cvuchener/hidpp
+No cvuchener/hidpp source file is included in this application.
+
+G502 X 3D model
+Title: Logitech G502 X corded, white
+Creator: okebelloelijah
+Source: https://sketchfab.com/3d-models/logitech-g502-x-corded-white-0f2f1e2b5ad547d2a34221db5bb1422d
+License: Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+Converted to USDZ and integrated into an interactive SceneKit view. The model
+is not covered by the application's MIT license and is limited to
+non-commercial use under its original license.

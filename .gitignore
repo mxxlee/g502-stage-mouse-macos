@@ -1,0 +1,40 @@
+.DS_Store
+.env
+.env.*
+
+# Build products
+/build/
+/outputs/
+*.app
+*.dmg
+*.zip
+
+# Local tools and one-off generators
+/dump_usdz
+/dump_usdz.swift
+/generate_ui.py
+/remove_old_ui.py
+/work/make_icns.swift
+/work/make_rgba_icon.swift
+/work/rollback-manifest-*.json
+/work/rustup-init.sh
+
+# Toolchains and caches
+/work/cargo-home/
+/work/rustup-home/
+/work/ux-swift-module-cache/
+/work/opengcontrol/target/
+/work/opengcontrol/.git/
+/work/opengcontrol/.git-upstream-backup/
+/work/opengcontrol/CLAUDE.md
+
+# Reference checkout used during reverse-engineering; no source is shipped
+/work/hidpp-reference/
+
+# Local mouse profiles and signing material
+profil-*.toml
+*-avant-stage-mouse-*.toml
+*-avant-restauration-*.toml
+*.p12
+*.cer
+*.key

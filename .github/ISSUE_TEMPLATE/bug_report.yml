@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a reproducible problem with the app or supported hardware
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping. Remove serial numbers, usernames, and personal paths from logs.
+  - type: input
+    id: mac
+    attributes:
+      label: Mac model and chip
+      placeholder: Mac mini M4 Pro
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Mouse connection
+      options:
+        - Wired
+        - LIGHTSPEED receiver
+        - POWERPLAY
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: What did you do, what happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Paste relevant diagnostic output after removing personal data.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I tested with G HUB and other mouse remappers closed.
+        - label: I removed serial numbers and personal paths from this report.
