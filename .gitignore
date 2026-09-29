@@ -38,3 +38,6 @@ profil-*.toml
 *.p12
 *.cer
 *.key
+
+# Isolated feature worktrees
+.worktrees/
