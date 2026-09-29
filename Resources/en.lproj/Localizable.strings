@@ -68,6 +68,8 @@
 "battery.detail.chargingError" = "%@ · charging error";
 "battery.detail.powerplayNotCharging" = "%@ · POWERPLAY connected, not charging";
 "battery.detail.notCharging" = "%@ · not charging";
+"battery.wired" = "Battery: wired mouse · no battery";
+"battery.detail.wired" = "Wired mouse · no battery";
 
 "accessibility.blocked.title" = "Button detected — action blocked by macOS";
 "accessibility.blocked.message" = "POWERPLAY is receiving the button, but macOS still prevents this version from triggering Mission Control and shortcuts.\n\nIn Accessibility, remove the old “G502 Stage Mouse” if needed, add the new app from Applications, then turn it on.";
@@ -102,7 +104,7 @@
 "error.hidCommandFailed" = "HID++ command failed.";
 "error.hidModuleMissing" = "The bundled HID++ module could not be found.";
 "error.hidDeviceListUnreadable" = "Logitech HID device list could not be read: %@";
-"error.receiverNotFound" = "Neither POWERPLAY (C53A), LIGHTSPEED (C547), nor the wired G502 X (C098) was found.\n%@";
+"error.receiverNotFound" = "Neither POWERPLAY (C53A), LIGHTSPEED (C547), the wired G502 X LIGHTSPEED (C098), nor the wired G502 X (C099) was found.\n%@";
 "error.originalBackupMissing" = "No “profil-…-avant-stage-mouse-….toml” backup was found in %@.";
 "error.activeProfileUnknown" = "Could not determine the active profile: %@";
 

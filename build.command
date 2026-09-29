@@ -39,6 +39,13 @@ for TABLE in Localizable InfoPlist; do
 done
 
 CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
+  -parse-as-library \
+  "$SCRIPT_DIR/work/verify_mouse_device.swift" \
+  "$SCRIPT_DIR/Sources/G502StageMouse/MouseDevice.swift" \
+  -o "$MODULE_CACHE/verify_mouse_device"
+"$MODULE_CACHE/verify_mouse_device"
+
+CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
   -sdk "$SDK" \
   -target arm64-apple-macosx13.0 \
   -O \
@@ -73,7 +80,7 @@ CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
 /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUMBER" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :NSHumanReadableCopyright string Local G502 utility" "$APP_DIR/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Add :NSInputMonitoringUsageDescription string Required to read and configure buttons on the G502 X LIGHTSPEED." "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :NSInputMonitoringUsageDescription string Required to read and configure buttons on the G502 X." "$APP_DIR/Contents/Info.plist"
 
 /usr/bin/xattr -cr "$APP_DIR"
 /usr/bin/codesign --force --sign - "$APP_DIR/Contents/MacOS/opengcontrol"

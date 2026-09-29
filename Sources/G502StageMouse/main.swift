@@ -86,7 +86,7 @@ private struct PhysicalButtonEvent {
 
 final class LogitechHIDMonitor {
     private let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-    private let supportedProductIDs = Set([0xC53A, 0xC547, 0xC098])
+    private let supportedProductIDs = Set(MouseDevice.allCases.map(\.productID))
     private var matchedDevices: [CFHashCode: String] = [:]
     var onButton: ((Int, Bool, TimeInterval) -> Void)?
     var onDevice: ((String?, Bool) -> Void)?
@@ -115,10 +115,12 @@ final class LogitechHIDMonitor {
             let pid = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int
             guard let pid, monitor.supportedProductIDs.contains(pid) else { return }
             let displayName: String?
-            if pid == 0xC53A {
+            if pid == MouseDevice.powerplayReceiver.productID {
                 displayName = L10n.string("device.powerplayReceiver")
-            } else if pid == 0xC547 {
+            } else if pid == MouseDevice.lightspeedReceiver.productID {
                 displayName = L10n.string("device.lightspeedReceiver")
+            } else if pid == MouseDevice.g502xWired.productID {
+                displayName = L10n.string("device.g502X")
             } else {
                 displayName = product == "USB Receiver" ? L10n.string("device.logitechReceiver") : product
             }
@@ -218,15 +220,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var systemSleeping = false
     private var isTerminating = false
     private var accessibilityWarningShown = false
-    private var physicalIndexToG: [Int: Int] = [
-        2: 3,  // clic molette
-        3: 4,  // arrière
-        5: 5,  // avant
-        4: 6,  // DPI shift
-        10: 7, // DPI -
-        9: 8,  // DPI +
-        8: 9   // profil
-    ]
+    private var selectedDevice: MouseDevice?
+    private var physicalIndexToG = MouseDevice.defaultPhysicalIndexToG
     private var calibrationTarget: Int?
     private var calibrationAlert: NSAlert?
     private var updateTimer: Timer?
@@ -314,16 +309,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func loadPhysicalIndexMappings() {
-        for button in buttons {
-            let key = "g502x.physicalIndex.g\(button)"
-            guard UserDefaults.standard.object(forKey: key) != nil else { continue }
-            let index = UserDefaults.standard.integer(forKey: key)
-            let stale = physicalIndexToG.compactMap { entry in
-                entry.key == index || entry.value == button ? entry.key : nil
-            }
-            stale.forEach { physicalIndexToG.removeValue(forKey: $0) }
-            physicalIndexToG[index] = button
-        }
+        physicalIndexToG = (selectedDevice ?? .lightspeedReceiver).physicalIndexMap(buttons: buttons)
+    }
+
+    private func applySelectedDevice(_ device: MouseDevice) {
+        guard selectedDevice != device else { return }
+        selectedDevice = device
+        loadPhysicalIndexMappings()
+        refreshBatteryUI()
+        rebuildMenu()
     }
 
     // Les versions précédentes pouvaient mettre au premier plan une fenêtre au
@@ -470,6 +464,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: ""
         )
         restore.target = self
+        restore.isHidden = selectedDevice?.supportsLegacyProfileRestore == false
         menu.addItem(restore)
 
         let restart = NSMenuItem(title: L10n.string("menu.restartDetection"), action: #selector(restartTap), keyEquivalent: "")
@@ -1208,12 +1203,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func completeCalibration(index: Int, button: Int) {
         guard calibrationTarget == button else { return }
-        let stale = physicalIndexToG.compactMap { entry in
-            entry.key == index || entry.value == button ? entry.key : nil
-        }
-        stale.forEach { physicalIndexToG.removeValue(forKey: $0) }
-        physicalIndexToG[index] = button
-        UserDefaults.standard.set(index, forKey: "g502x.physicalIndex.g\(button)")
+        MouseDevice.assign(index: index, button: button, in: &physicalIndexToG)
+        (selectedDevice ?? .lightspeedReceiver).saveCalibration(index: index, button: button)
         calibrationTarget = nil
         visualConfig?.showCalibration(index: index, button: button)
         if let alert = calibrationAlert {
@@ -1346,7 +1337,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    private func receiverSelection(in directory: URL) throws -> (path: String, pid: String) {
+    private func receiverSelection(in directory: URL) throws -> (path: String, device: MouseDevice) {
         let listing = try runHelper(["--output", "json", "list"], in: directory)
         guard let data = listing.data(using: .utf8),
               let devices = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
@@ -1356,11 +1347,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 userInfo: [NSLocalizedDescriptionKey: L10n.format("error.hidDeviceListUnreadable", listing)]
             )
         }
-        for wantedPID in ["C53A", "C547", "C098"] {
-            if let device = devices.first(where: { ($0["pid"] as? String) == wantedPID }),
-               let path = device["path"] as? String {
-                return (path, wantedPID)
-            }
+        if let selection = MouseDevice.select(from: devices) {
+            return (selection.path, selection.device)
         }
         throw NSError(
             domain: "G502StageMouse",
@@ -1542,7 +1530,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ) {
         let normalized = max(100, min(25_600, 100 + Int(round(Double(value - 100) / 50.0)) * 50))
         var arguments = ["dpi", "set", "\(normalized)"]
-        if persist {
+        if persist, selectedDevice?.supportsPersistentDPI != false {
             arguments.append("--persist")
         }
         performDPIOperation(arguments: arguments, completion: completion)
@@ -1676,12 +1664,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         return
                     }
                     self.buttonSpyProcess = process
-                    self.connectedDevice = (
-                        receiver.pid == "C53A"
-                            ? L10n.string("device.powerplayReceiver")
-                            : L10n.format("device.lightspeedReceiverWithPID", receiver.pid),
-                        true
-                    )
+                    self.applySelectedDevice(receiver.device)
+                    let deviceName: String
+                    switch receiver.device {
+                    case .powerplayReceiver: deviceName = L10n.string("device.powerplayReceiver")
+                    case .g502xWired: deviceName = L10n.string("device.g502X")
+                    default: deviceName = L10n.format("device.lightspeedReceiverWithPID", receiver.device.pid)
+                    }
+                    self.connectedDevice = (deviceName, true)
                     self.visualConfig?.updateDevice(
                         name: self.connectedDevice.name,
                         connected: true
@@ -1776,6 +1766,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard connectedDevice.connected else {
             return L10n.string(detail ? "battery.detail.mouseDisconnected" : "battery.mouseDisconnected")
         }
+        if selectedDevice?.hasBattery == false {
+            return L10n.string(detail ? "battery.detail.wired" : "battery.wired")
+        }
         guard batteryAvailable else {
             return buttonSpyReady
                 ? L10n.string(detail ? "battery.detail.unavailable" : "battery.unavailable")
@@ -1808,10 +1801,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func refreshBatteryUI() {
+        let wired = selectedDevice?.hasBattery == false && connectedDevice.connected
+        visualConfig?.setDPIPersistenceAvailable(selectedDevice?.supportsPersistentDPI != false)
         visualConfig?.updateBattery(
             text: batteryDetailText(),
             charging: batteryCharging,
-            available: batteryAvailable
+            available: batteryAvailable || wired,
+            showsSymbol: !wired
         )
     }
 
@@ -2049,6 +2045,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func restoreOriginalProfile() {
+        guard selectedDevice?.supportsLegacyProfileRestore != false else { return }
         let support: URL
         let originalBackup: URL
         do {

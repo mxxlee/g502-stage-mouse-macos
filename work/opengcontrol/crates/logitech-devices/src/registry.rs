@@ -3,7 +3,7 @@ use crate::devices::g305::{G305_SE_WIRELESS, G305_WIRELESS};
 use crate::devices::g403::{G403_HERO_WIRED, G403_WIRED, G403_WIRELESS};
 use crate::devices::g502_lightspeed::{G502_LIGHTSPEED_WIRED, G502_LIGHTSPEED_WIRELESS};
 use crate::devices::g502x::{
-    G502X_LIGHTSPEED_POWERPLAY, G502X_LIGHTSPEED_WIRED, G502X_LIGHTSPEED_WIRELESS,
+    G502X_LIGHTSPEED_POWERPLAY, G502X_LIGHTSPEED_WIRED, G502X_LIGHTSPEED_WIRELESS, G502X_WIRED,
 };
 
 /// All supported devices. To add a new device:
@@ -21,6 +21,7 @@ static DEVICE_REGISTRY: &[&DeviceInfo] = &[
     &G502X_LIGHTSPEED_WIRED,
     &G502X_LIGHTSPEED_WIRELESS,
     &G502X_LIGHTSPEED_POWERPLAY,
+    &G502X_WIRED,
     // Future additions:
     // &g502::G502_WIRED,
     // &g502::G502_HERO_WIRED,
@@ -116,6 +117,12 @@ mod tests {
     fn find_g502x_lightspeed_powerplay() {
         let dev = find_device(0x046D, 0xC53A).unwrap();
         assert_eq!(dev.name, "Logitech G502 X LIGHTSPEED (POWERPLAY)");
+    }
+
+    #[test]
+    fn find_g502x_wired() {
+        let dev = find_device(0x046D, 0xC099).unwrap();
+        assert_eq!(dev.name, "Logitech G502 X");
     }
 
     #[test]

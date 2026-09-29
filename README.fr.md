@@ -103,7 +103,10 @@ natif est rejoué.
 
 - macOS 13 ou version ultérieure ;
 - Apple Silicon ;
-- G502 X LIGHTSPEED filaire : `046D:C098` ;
+- G502 X (USB uniquement, sans sans-fil) : `046D:C099`. Les changements de DPI
+  ne s’appliquent qu’à la session en cours ; l’enregistrement du DPI dans la
+  souris n’est pas disponible, et aucune batterie n’est affichée ;
+- G502 X LIGHTSPEED reliée en USB : `046D:C098` ;
 - récepteur LIGHTSPEED : `046D:C547` ;
 - POWERPLAY : `046D:C53A`.
 

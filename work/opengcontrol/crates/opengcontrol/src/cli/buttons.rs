@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use clap::Args;
 use hidpp_core::features::{read_battery, MouseButtonSpy, OnboardMode, OnboardProfiles};
-use hidpp_core::HidppError;
+use hidpp_core::{FeatureIndex, HidTransport, HidppDevice, HidppError};
 
 use crate::context::DeviceContext;
 use crate::output::OutputFormat;
@@ -78,6 +78,16 @@ fn emit_battery(ctx: &DeviceContext, output: OutputFormat) -> Result<(), String>
     io::stdout().flush().map_err(|error| error.to_string())
 }
 
+fn enter_host_mode<T: HidTransport>(
+    device: &HidppDevice<T>,
+) -> Result<(FeatureIndex, u8, OnboardMode), String> {
+    let feature = MouseButtonSpy::feature_index(device).map_err(|e| e.to_string())?;
+    let button_count = MouseButtonSpy::button_count(device).map_err(|e| e.to_string())?;
+    let previous_mode = OnboardProfiles::get_mode(device).map_err(|e| e.to_string())?;
+    OnboardProfiles::set_mode(device, OnboardMode::Host).map_err(|e| e.to_string())?;
+    Ok((feature, button_count, previous_mode))
+}
+
 /// Stream raw physical button transitions as newline-delimited JSON.
 pub fn handle_buttons(
     ctx: &DeviceContext,
@@ -87,11 +97,7 @@ pub fn handle_buttons(
     KEEP_LISTENING.store(true, Ordering::SeqCst);
     install_signal_handlers();
 
-    let previous_mode = OnboardProfiles::get_mode(ctx.device()).map_err(|e| e.to_string())?;
-    OnboardProfiles::set_mode(ctx.device(), OnboardMode::Host).map_err(|e| e.to_string())?;
-
-    let feature = MouseButtonSpy::feature_index(ctx.device()).map_err(|e| e.to_string())?;
-    let button_count = MouseButtonSpy::button_count(ctx.device()).map_err(|e| e.to_string())?;
+    let (feature, button_count, previous_mode) = enter_host_mode(ctx.device())?;
     // Lire la batterie avant d'activer MouseButtonSpy. Une requête synchrone
     // pendant l'écoute pourrait consommer puis ignorer une notification 0x8110.
     if let Err(error) = emit_battery(ctx, output) {
@@ -170,5 +176,92 @@ pub fn handle_buttons(
         (Err(error), _) => Err(error),
         (Ok(()), Err(error)) => Err(error.to_string()),
         (Ok(()), Ok(())) => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::VecDeque;
+    use std::sync::{Arc, Mutex};
+
+    const SOFTWARE_ID: u8 = 0x0C;
+
+    fn short_response(feature_index: u8, function: u8, params: [u8; 3]) -> Vec<u8> {
+        vec![
+            0x10,
+            0xFF,
+            feature_index,
+            (function << 4) | SOFTWARE_ID,
+            params[0],
+            params[1],
+            params[2],
+        ]
+    }
+
+    struct ScriptedTransport {
+        writes: Arc<Mutex<Vec<Vec<u8>>>>,
+        pending: Mutex<VecDeque<Vec<u8>>>,
+    }
+
+    impl ScriptedTransport {
+        fn new() -> Self {
+            Self {
+                writes: Arc::new(Mutex::new(Vec::new())),
+                pending: Mutex::new(VecDeque::new()),
+            }
+        }
+
+        fn respond(request: &[u8]) -> Vec<u8> {
+            let (feature, function) = (request[3], request[4] >> 4);
+            match (feature, function) {
+                (0x00, 0) => {
+                    let code = u16::from_be_bytes([request[5], request[6]]);
+                    let index = if code == 0x8100 { 0x05 } else { 0x00 };
+                    short_response(0x00, 0, [index, 0, 0])
+                }
+                (0x05, 2) => short_response(0x05, 2, [OnboardMode::Onboard as u8, 0, 0]),
+                _ => short_response(feature, function, [0, 0, 0]),
+            }
+        }
+    }
+
+    impl HidTransport for ScriptedTransport {
+        fn write(&self, data: &[u8]) -> Result<(), HidppError> {
+            self.writes.lock().unwrap().push(data.to_vec());
+            self.pending.lock().unwrap().push_back(Self::respond(data));
+            Ok(())
+        }
+
+        fn read(&self, buf: &mut [u8], _timeout_ms: i32) -> Result<usize, HidppError> {
+            let response = self
+                .pending
+                .lock()
+                .unwrap()
+                .pop_front()
+                .ok_or(HidppError::Timeout { timeout_ms: 0 })?;
+            buf[..response.len()].copy_from_slice(&response);
+            Ok(response.len())
+        }
+    }
+
+    #[test]
+    fn missing_button_spy_feature_leaves_mode_unchanged() {
+        let transport = ScriptedTransport::new();
+        let writes = transport.writes.clone();
+        let device = HidppDevice::new(transport);
+
+        assert!(enter_host_mode(&device).is_err());
+
+        let mode_writes: Vec<_> = writes
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|write| write[3] == 0x05 && write[4] >> 4 == 1)
+            .cloned()
+            .collect();
+        if let Some(last) = mode_writes.last() {
+            assert_eq!(last[5], OnboardMode::Onboard as u8);
+        }
     }
 }

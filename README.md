@@ -98,7 +98,10 @@ normally. If G3 is set to **No action**, the app replays a native middle click.
 
 - macOS 13 or later;
 - Apple Silicon;
-- wired G502 X LIGHTSPEED: `046D:C098`;
+- G502 X (USB-only, no wireless): `046D:C099`. DPI changes apply to the current
+  session only; saving DPI to the mouse is unavailable, and there is no battery
+  display;
+- G502 X LIGHTSPEED connected by USB: `046D:C098`;
 - LIGHTSPEED receiver: `046D:C547`;
 - POWERPLAY: `046D:C53A`.
 

@@ -610,10 +610,15 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
         refreshDeviceLabel()
     }
 
-    func updateBattery(text: String, charging: Bool, available: Bool) {
+    func setDPIPersistenceAvailable(_ available: Bool) {
+        dpiPersist.isEnabled = available
+        if !available { dpiPersist.state = .off }
+    }
+
+    func updateBattery(text: String, charging: Bool, available: Bool, showsSymbol: Bool = true) {
         if available {
             let symbol = charging ? "⚡️" : "🔋"
-            displayedBattery = "\(symbol) \(text)"
+            displayedBattery = showsSymbol ? "\(symbol) \(text)" : text
         } else {
             displayedBattery = nil
         }
