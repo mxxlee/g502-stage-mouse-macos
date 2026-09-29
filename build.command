@@ -23,6 +23,21 @@ fi
 
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$MODULE_CACHE"
 
+for LANGUAGE in en fr; do
+  /bin/mkdir -p "$APP_DIR/Contents/Resources/$LANGUAGE.lproj"
+  for TABLE in Localizable InfoPlist; do
+    SOURCE_TABLE="$SCRIPT_DIR/Resources/$LANGUAGE.lproj/$TABLE.strings"
+    /usr/bin/plutil -lint "$SOURCE_TABLE"
+    /bin/cp "$SOURCE_TABLE" "$APP_DIR/Contents/Resources/$LANGUAGE.lproj/$TABLE.strings"
+  done
+done
+
+for TABLE in Localizable InfoPlist; do
+  CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/xcrun swift "$SCRIPT_DIR/work/verify_localizations.swift" \
+    "$SCRIPT_DIR/Resources/en.lproj/$TABLE.strings" \
+    "$SCRIPT_DIR/Resources/fr.lproj/$TABLE.strings"
+done
+
 CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
   -sdk "$SDK" \
   -target arm64-apple-macosx13.0 \
@@ -50,11 +65,15 @@ CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
 /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string G502StageMouse" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundlePackageType string APPL" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :CFBundleDevelopmentRegion string en" "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :CFBundleLocalizations array" "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :CFBundleLocalizations:0 string en" "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :CFBundleLocalizations:1 string fr" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $APP_VERSION" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUMBER" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$APP_DIR/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Add :NSHumanReadableCopyright string Utilitaire local G502" "$APP_DIR/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Add :NSInputMonitoringUsageDescription string Nécessaire pour lire et configurer les boutons de la G502 X LIGHTSPEED." "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :NSHumanReadableCopyright string Local G502 utility" "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :NSInputMonitoringUsageDescription string Required to read and configure buttons on the G502 X LIGHTSPEED." "$APP_DIR/Contents/Info.plist"
 
 /usr/bin/xattr -cr "$APP_DIR"
 /usr/bin/codesign --force --sign - "$APP_DIR/Contents/MacOS/opengcontrol"
@@ -67,7 +86,7 @@ CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
   /usr/bin/zip -qry -X "$ARCHIVE" "$APP_NAME.app"
 )
 CHECKSUM=$(/usr/bin/shasum -a 256 "$ARCHIVE" | /usr/bin/cut -d ' ' -f 1)
-/usr/bin/printf '{\n  "version": "%s",\n  "archive": "%s",\n  "sha256": "%s",\n  "notes": "V1 événementielle : survol sans timer, protection de la saisie, défilement libre à la molette, reconnexion sobre et reprise après veille."\n}\n' \
+/usr/bin/printf '{\n  "version": "%s",\n  "archive": "%s",\n  "sha256": "%s",\n  "notes": "Event-driven V1: timer-free hover, typing safeguards, free wheel scrolling, measured reconnection, and wake-from-sleep recovery."\n}\n' \
   "$APP_VERSION" "$ARCHIVE_NAME" "$CHECKSUM" > "$MANIFEST"
 
 "$SCRIPT_DIR/work/verify_hover_safety.sh" \
