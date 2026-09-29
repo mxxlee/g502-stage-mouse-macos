@@ -68,6 +68,8 @@
 "battery.detail.chargingError" = "%@ · erreur de charge";
 "battery.detail.powerplayNotCharging" = "%@ · POWERPLAY connecté, pas en charge";
 "battery.detail.notCharging" = "%@ · pas en charge";
+"battery.wired" = "Batterie : souris filaire · pas de batterie";
+"battery.detail.wired" = "Souris filaire · pas de batterie";
 
 "accessibility.blocked.title" = "Bouton détecté — action bloquée par macOS";
 "accessibility.blocked.message" = "POWERPLAY transmet correctement le bouton, mais macOS interdit encore à cette version de déclencher Mission Control et les raccourcis.\n\nDans Accessibilité, supprime l’ancienne « G502 Stage Mouse » si nécessaire, ajoute la nouvelle app depuis Applications, puis active son interrupteur.";
@@ -102,7 +104,7 @@
 "error.hidCommandFailed" = "Échec de la commande HID++.";
 "error.hidModuleMissing" = "Le module HID++ intégré est introuvable.";
 "error.hidDeviceListUnreadable" = "Liste HID Logitech illisible : %@";
-"error.receiverNotFound" = "Ni POWERPLAY (C53A), ni LIGHTSPEED (C547), ni la G502 X filaire (C098) n’a été trouvé.\n%@";
+"error.receiverNotFound" = "Ni POWERPLAY (C53A), ni LIGHTSPEED (C547), ni la G502 X LIGHTSPEED filaire (C098), ni la G502 X filaire (C099) n’a été trouvé.\n%@";
 "error.originalBackupMissing" = "Aucune sauvegarde « profil-…-avant-stage-mouse-….toml » n’a été trouvée dans %@.";
 "error.activeProfileUnknown" = "Impossible de déterminer le profil actif : %@";
 

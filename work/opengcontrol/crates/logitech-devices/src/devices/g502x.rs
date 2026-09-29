@@ -45,3 +45,11 @@ pub static G502X_LIGHTSPEED_POWERPLAY: DeviceInfo = DeviceInfo {
     pid: 0xC53A,
     capabilities: G502X_LIGHTSPEED_CAPABILITIES,
 };
+
+/// Logitech G502 X (USB-only, no LIGHTSPEED radio) — PID 0xC099
+pub static G502X_WIRED: DeviceInfo = DeviceInfo {
+    name: "Logitech G502 X",
+    vid: 0x046D,
+    pid: 0xC099,
+    capabilities: G502X_LIGHTSPEED_CAPABILITIES,
+};

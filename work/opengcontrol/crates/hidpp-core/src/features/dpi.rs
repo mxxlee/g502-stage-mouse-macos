@@ -63,7 +63,8 @@ impl AdjustableDpi {
     }
 
     /// Function 3 — setSensorDpi.
-    /// Sets the DPI on the given sensor. Does NOT save to onboard flash —
+    /// Sets the DPI on the given sensor. Retries as a long message when the
+    /// device rejects the short form (G502 X, feature version 2). Does NOT save to onboard flash —
     /// use OnboardProfiles::write_profile() to persist.
     pub fn set_dpi<T: HidTransport>(
         device: &HidppDevice<T>,
@@ -71,8 +72,15 @@ impl AdjustableDpi {
         dpi: u16,
     ) -> Result<(), HidppError> {
         let [hi, lo] = dpi.to_be_bytes();
-        device.call_feature_short(FeatureCode::AdjustableDpi, 3, [sensor_idx, hi, lo, 0x00])?;
-        Ok(())
+        match device.call_feature_short(FeatureCode::AdjustableDpi, 3, [sensor_idx, hi, lo, 0x00]) {
+            Err(HidppError::DeviceError { error_code: 2, .. }) => {
+                let mut params = [0u8; 16];
+                params[..3].copy_from_slice(&[sensor_idx, hi, lo]);
+                device.call_feature_long(FeatureCode::AdjustableDpi, 3, params)?;
+                Ok(())
+            }
+            result => result.map(|_| ()),
+        }
     }
 }
 
@@ -169,6 +177,18 @@ mod tests {
         v
     }
 
+    fn error_resp(feature_index: u8, function: u8, code: u8) -> Vec<u8> {
+        vec![
+            0x10,
+            0xFF,
+            0xFF,
+            feature_index,
+            (function << 4) | crate::protocol::message::SOFTWARE_ID,
+            code,
+            0x00,
+        ]
+    }
+
     fn device_with_dpi_at_index(dpi_index: u8) -> HidppDevice<MockTransport> {
         let transport = MockTransport::new();
         // IRoot response: DPI feature is at index dpi_index
@@ -206,6 +226,32 @@ mod tests {
         let [hi, lo] = 800u16.to_be_bytes();
         assert_eq!(hi, 0x03);
         assert_eq!(lo, 0x20);
+    }
+
+    #[test]
+    fn set_dpi_falls_back_to_long_message_on_invalid_argument() {
+        let transport = MockTransport::new();
+        transport.push_response(make_short_resp(0x00, 0x00, [0x03, 0, 0, 0]));
+        transport.push_response(error_resp(0x03, 3, 0x02));
+        let mut echo = [0u8; 16];
+        echo[..3].copy_from_slice(&[0x00, 0x04, 0xB0]);
+        transport.push_response(make_long_resp(0x03, 0x03, echo));
+
+        let device = HidppDevice::new(transport);
+        AdjustableDpi::set_dpi(&device, 0, 1200).unwrap();
+    }
+
+    #[test]
+    fn set_dpi_reports_other_device_errors() {
+        let transport = MockTransport::new();
+        transport.push_response(make_short_resp(0x00, 0x00, [0x03, 0, 0, 0]));
+        transport.push_response(error_resp(0x03, 3, 0x05));
+
+        let device = HidppDevice::new(transport);
+        assert!(matches!(
+            AdjustableDpi::set_dpi(&device, 0, 1200),
+            Err(HidppError::DeviceError { error_code: 5, .. })
+        ));
     }
 
     #[test]
