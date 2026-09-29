@@ -4,7 +4,7 @@ import Foundation
 enum VerifyLocalizer {
     static func main() {
         guard CommandLine.arguments.count == 2 else {
-            fatalError("Expected english, french, fallback, or system")
+            fatalError("Expected english, french, fallback, system, or earlySelect")
         }
 
         let defaults = UserDefaults.standard
@@ -39,6 +39,13 @@ enum VerifyLocalizer {
             )
             let expected = mainValue == "action.historyBack" ? "Back" : mainValue
             precondition(L10n.string("action.historyBack") == expected)
+        case "earlySelect":
+            defaults.set(AppLanguage.english.rawValue, forKey: L10n.preferenceKey)
+            precondition(L10n.selectedLanguage == .english)
+            L10n.select(.french)
+            precondition(L10n.selectedLanguage == .french)
+            precondition(L10n.string("action.historyBack") == "Back", "Language changed before relaunch")
+            precondition(L10n.format("battery.level.exact", 42) == "42%")
         default:
             fatalError("Unknown test case")
         }

@@ -23,6 +23,7 @@ enum L10n {
     }
 
     static func select(_ language: AppLanguage) {
+        _ = activeLanguage
         UserDefaults.standard.set(language.rawValue, forKey: preferenceKey)
     }
 
