@@ -162,14 +162,14 @@ final class MouseSceneView: SCNView {
 
 final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
     private let diagram = MouseSceneView(frame: .zero)
-    private let detectedLabel = NSTextField(wrappingLabelWithString: "✓ Attente de détection…")
-    private let deviceLabel = NSTextField(labelWithString: "🟢 Recherche du récepteur…")
+    private let detectedLabel = NSTextField(wrappingLabelWithString: L10n.string("visual.detection.waiting"))
+    private let deviceLabel = NSTextField(labelWithString: L10n.string("device.searchingReceiver"))
     private let dpiSlider = NSSlider(value: 1_600, minValue: 100, maxValue: 25_600, target: nil, action: nil)
     private let dpiField = NSTextField(string: "1600")
     private let dpiPreset = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let dpiPersist = NSButton(checkboxWithTitle: "Enregistrer dans le profil", target: nil, action: nil)
-    private let dpiApply = NSButton(title: "Appliquer", target: nil, action: nil)
-    private let dpiStatus = NSTextField(labelWithString: "Lecture du DPI…")
+    private let dpiPersist = NSButton(checkboxWithTitle: L10n.string("dpi.persist"), target: nil, action: nil)
+    private let dpiApply = NSButton(title: L10n.string("dpi.apply"), target: nil, action: nil)
+    private let dpiStatus = NSTextField(labelWithString: L10n.string("dpi.readingCurrent"))
     private var popups: [Int: NSPopUpButton] = [:]
     private var displayedDeviceName: String?
     private var displayedDeviceConnected = false
@@ -200,7 +200,7 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "G502 Stage Mouse"
+        window.title = L10n.string("visual.window.title")
         window.minSize = NSSize(width: 960, height: 740)
         window.isRestorable = false
         window.setFrameAutosaveName("G502StageMouse.VisualConfiguration")
@@ -254,7 +254,7 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
         let settingsButton = NSButton(frame: .zero)
         settingsButton.bezelStyle = .regularSquare
         settingsButton.isBordered = false
-        settingsButton.image = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: "Paramètres")
+        settingsButton.image = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: L10n.string("visual.settings"))
         settingsButton.contentTintColor = .secondaryLabelColor
         settingsButton.translatesAutoresizingMaskIntoConstraints = false
         settingsButton.target = self
@@ -282,11 +282,11 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
 
         // ── Sidebar content ──
 
-        let heading = NSTextField(labelWithString: "Boutons et gestes")
+        let heading = NSTextField(labelWithString: L10n.string("visual.heading"))
         heading.font = .systemFont(ofSize: 22, weight: .bold)
         heading.alignment = .center
 
-        let subheading = NSTextField(wrappingLabelWithString: "Appuyez sur un bouton pour le localiser.")
+        let subheading = NSTextField(wrappingLabelWithString: L10n.string("visual.instruction"))
         subheading.font = .systemFont(ofSize: 12)
         subheading.textColor = .secondaryLabelColor
         subheading.alignment = .center
@@ -323,9 +323,9 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
         let dpiCard = NSVisualEffectView()
         configureCard(dpiCard, radius: 10)
         dpiCard.translatesAutoresizingMaskIntoConstraints = false
-        dpiCard.heightAnchor.constraint(equalToConstant: 108).isActive = true
+        dpiCard.heightAnchor.constraint(equalToConstant: 124).isActive = true
 
-        let dpiTitle = NSTextField(labelWithString: "Sensibilité")
+        let dpiTitle = NSTextField(labelWithString: L10n.string("dpi.title"))
         dpiTitle.font = .systemFont(ofSize: 13, weight: .semibold)
         dpiStatus.font = .systemFont(ofSize: 11)
         dpiStatus.textColor = .secondaryLabelColor
@@ -367,7 +367,7 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
         dpiRange.alignment = .centerY
         dpiRange.spacing = 7
 
-        dpiPreset.addItem(withTitle: "Préréglage")
+        dpiPreset.addItem(withTitle: L10n.string("dpi.preset"))
         for value in [400, 800, 1_200, 1_600, 3_200, 6_400] {
             dpiPreset.addItem(withTitle: "\(value)")
             dpiPreset.lastItem?.representedObject = value
@@ -384,10 +384,15 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
         dpiApply.target = self
         dpiApply.action = #selector(applyDPI(_:))
 
-        let dpiActions = NSStackView(views: [dpiPreset, dpiPersist, NSView(), dpiApply])
-        dpiActions.orientation = .horizontal
-        dpiActions.alignment = .centerY
-        dpiActions.spacing = 4
+        let dpiActionButtons = NSStackView(views: [dpiPreset, NSView(), dpiApply])
+        dpiActionButtons.orientation = .horizontal
+        dpiActionButtons.alignment = .centerY
+        dpiActionButtons.spacing = 4
+
+        let dpiActions = NSStackView(views: [dpiActionButtons, dpiPersist])
+        dpiActions.orientation = .vertical
+        dpiActions.alignment = .width
+        dpiActions.spacing = 2
 
         let dpiStack = NSStackView(views: [dpiHeader, dpiRange, dpiActions])
         dpiStack.orientation = .vertical
@@ -419,9 +424,9 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
 
         // ── Button mapping rows (the main content) ──
 
-        let physicalNames = [
-            3: "G3 · Molette", 4: "G4 · Arrière", 5: "G5 · Avant",
-            6: "G6 · DPI", 7: "G7 · DPI −", 8: "G8 · DPI +", 9: "G9 · Profil"
+        let physicalNameKeys: [Int: String] = [
+            3: "visual.button.g3", 4: "visual.button.g4", 5: "visual.button.g5",
+            6: "visual.button.g6", 7: "visual.button.g7", 8: "visual.button.g8", 9: "visual.button.g9"
         ]
 
         for button in 3...9 {
@@ -437,7 +442,9 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
             }
             row.heightAnchor.constraint(equalToConstant: 32).isActive = true
 
-            let label = NSTextField(labelWithString: physicalNames[button] ?? "G\(button)")
+            let physicalName = physicalNameKeys[button].map { L10n.string($0) }
+                ?? L10n.format("visual.button.generic", button)
+            let label = NSTextField(labelWithString: physicalName)
             label.font = .systemFont(ofSize: 12, weight: .medium)
             label.widthAnchor.constraint(equalToConstant: 88).isActive = true
 
@@ -459,7 +466,7 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
             let associate = NSButton(frame: .zero)
             associate.bezelStyle = .regularSquare
             associate.isBordered = false
-            associate.image = NSImage(systemSymbolName: "link", accessibilityDescription: "Associer")
+            associate.image = NSImage(systemSymbolName: "link", accessibilityDescription: L10n.string("visual.associate"))
             associate.contentTintColor = .tertiaryLabelColor
             associate.target = self
             associate.action = #selector(calibrateButton(_:))
@@ -476,6 +483,7 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
 
         stack.setCustomSpacing(14, after: stack.arrangedSubviews.last!)
         stack.addArrangedSubview(dpiCard)
+        dpiCard.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
 
         // ── Scroll view ──
 
@@ -500,7 +508,7 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
         let vc = NSViewController()
         let view = NSView(frame: NSRect(x: 0, y: 0, width: 250, height: 60))
 
-        let message = NSTextField(wrappingLabelWithString: "L’activation de fenêtre au survol reste désactivée. Le stabilisateur agit uniquement après un clic, hors saisie clavier. Le défilement libre à la molette se règle depuis le menu de l’app.")
+        let message = NSTextField(wrappingLabelWithString: L10n.string("visual.settings.message"))
         message.frame = NSRect(x: 16, y: 12, width: 218, height: 38)
         message.textColor = .secondaryLabelColor
         view.addSubview(message)
@@ -516,11 +524,11 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
               let action = Action(rawValue: raw) else { return }
         setMapping(sender.tag, action)
         diagram.mappings = getMappings()
-        setDetectionState("✓ G\(sender.tag) · \(action.title)", color: action == .none ? .secondaryLabelColor : .systemGreen, highlightedButton: sender.tag)
+        setDetectionState(L10n.format("visual.detection.action", sender.tag, action.title), color: action == .none ? .secondaryLabelColor : .systemGreen, highlightedButton: sender.tag)
     }
 
     @objc private func calibrateButton(_ sender: NSButton) {
-        setDetectionState("🔗 En attente de G\(sender.tag)…", color: .systemOrange)
+        setDetectionState(L10n.format("calibration.waiting", sender.tag), color: .systemOrange)
         startCalibration(sender.tag)
     }
 
@@ -531,41 +539,41 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
         dpiField.integerValue = normalized
     }
 
-    @objc private func dpiSliderChanged(_ sender: NSSlider) { updateDPIControls(Int(sender.doubleValue)); dpiStatus.stringValue = "Prêt" }
-    @objc private func dpiFieldChanged(_ sender: NSTextField) { updateDPIControls(sender.integerValue); dpiStatus.stringValue = "Prêt" }
+    @objc private func dpiSliderChanged(_ sender: NSSlider) { updateDPIControls(Int(sender.doubleValue)); dpiStatus.stringValue = L10n.string("dpi.ready") }
+    @objc private func dpiFieldChanged(_ sender: NSTextField) { updateDPIControls(sender.integerValue); dpiStatus.stringValue = L10n.string("dpi.ready") }
     @objc private func dpiPresetChanged(_ sender: NSPopUpButton) {
         guard let value = sender.selectedItem?.representedObject as? Int else { return }
-        updateDPIControls(value); dpiStatus.stringValue = "Prêt"
+        updateDPIControls(value); dpiStatus.stringValue = L10n.string("dpi.ready")
     }
 
     @objc private func applyDPI(_ sender: NSButton) {
         let value = normalizedDPI(dpiField.integerValue)
         updateDPIControls(value)
         dpiApply.isEnabled = false; dpiSlider.isEnabled = false
-        dpiStatus.stringValue = "Application…"; dpiStatus.textColor = .systemOrange
+        dpiStatus.stringValue = L10n.string("dpi.applying"); dpiStatus.textColor = .systemOrange
         setDPI(value, dpiPersist.state == .on) { [weak self] result in
             guard let self else { return }
             self.dpiApply.isEnabled = true; self.dpiSlider.isEnabled = true
             switch result {
             case .success(let applied):
-                self.updateDPIControls(applied); self.dpiStatus.stringValue = "\(applied) DPI ✓"; self.dpiStatus.textColor = .systemGreen
+                self.updateDPIControls(applied); self.dpiStatus.stringValue = L10n.format("dpi.applied", applied); self.dpiStatus.textColor = .systemGreen
             case .failure(let error):
-                self.dpiStatus.stringValue = "Échec"; self.dpiStatus.textColor = .systemRed
-                let alert = NSAlert(); alert.messageText = "Erreur DPI"; alert.informativeText = error.localizedDescription; alert.runModal()
+                self.dpiStatus.stringValue = L10n.string("dpi.failed"); self.dpiStatus.textColor = .systemRed
+                let alert = NSAlert(); alert.messageText = L10n.string("dpi.error.title"); alert.informativeText = error.localizedDescription; alert.runModal()
             }
         }
     }
 
     private func refreshDPI() {
-        dpiApply.isEnabled = false; dpiStatus.stringValue = "Lecture…"
+        dpiApply.isEnabled = false; dpiStatus.stringValue = L10n.string("dpi.reading")
         readDPI { [weak self] result in
             guard let self else { return }
             self.dpiApply.isEnabled = true
             switch result {
             case .success(let dpi):
-                self.updateDPIControls(dpi); self.dpiStatus.stringValue = "\(dpi) DPI"; self.dpiStatus.textColor = .systemGreen
+                self.updateDPIControls(dpi); self.dpiStatus.stringValue = L10n.format("dpi.current", dpi); self.dpiStatus.textColor = .systemGreen
             case .failure:
-                self.dpiStatus.stringValue = "DPI indisponible"; self.dpiStatus.textColor = .systemRed
+                self.dpiStatus.stringValue = L10n.string("dpi.unavailable"); self.dpiStatus.textColor = .systemRed
             }
         }
     }
@@ -586,13 +594,13 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
 
     func highlight(button: Int) {
         let action = getMappings()[button] ?? .none
-        let desc = action == .none ? "aucune action" : action.title
-        setDetectionState("✓ G\(button) détecté · \(desc)", color: .systemGreen, highlightedButton: button)
+        let desc = action == .none ? L10n.string("visual.detection.noAction") : action.title
+        setDetectionState(L10n.format("visual.detection.detected", button, desc), color: .systemGreen, highlightedButton: button)
         popups[button]?.becomeFirstResponder()
     }
 
     func showCalibration(index: Int, button: Int) {
-        setDetectionState("🔗 G\(button) associé (index \(index))", color: .systemGreen, highlightedButton: button)
+        setDetectionState(L10n.format("calibration.assigned", button, index), color: .systemGreen, highlightedButton: button)
     }
 
     func updateDevice(name: String?, connected: Bool) {
@@ -605,8 +613,7 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
     func updateBattery(text: String, charging: Bool, available: Bool) {
         if available {
             let symbol = charging ? "⚡️" : "🔋"
-            let batteryText = text.replacingOccurrences(of: "Batterie : ", with: "")
-            displayedBattery = "\(symbol) \(batteryText)"
+            displayedBattery = "\(symbol) \(text)"
         } else {
             displayedBattery = nil
         }
@@ -615,12 +622,13 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
 
     private func refreshDeviceLabel() {
         guard displayedDeviceConnected else {
-            deviceLabel.stringValue = "🔴 Récepteur non détecté"
+            deviceLabel.stringValue = L10n.string("device.receiverMissing")
             deviceLabel.textColor = .systemRed
             return
         }
-        let base = "🟢 \(displayedDeviceName ?? "POWERPLAY") connecté"
-        deviceLabel.stringValue = displayedBattery.map { "\(base) · \($0)" } ?? base
+        let name = displayedDeviceName ?? L10n.string("device.powerplay")
+        deviceLabel.stringValue = displayedBattery.map { L10n.format("device.connectedWithBattery", name, $0) }
+            ?? L10n.format("device.connected", name)
         deviceLabel.textColor = .labelColor
     }
 }
