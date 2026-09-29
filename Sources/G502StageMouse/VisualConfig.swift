@@ -323,7 +323,7 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
         let dpiCard = NSVisualEffectView()
         configureCard(dpiCard, radius: 10)
         dpiCard.translatesAutoresizingMaskIntoConstraints = false
-        dpiCard.heightAnchor.constraint(equalToConstant: 108).isActive = true
+        dpiCard.heightAnchor.constraint(equalToConstant: 124).isActive = true
 
         let dpiTitle = NSTextField(labelWithString: L10n.string("dpi.title"))
         dpiTitle.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -384,10 +384,15 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
         dpiApply.target = self
         dpiApply.action = #selector(applyDPI(_:))
 
-        let dpiActions = NSStackView(views: [dpiPreset, dpiPersist, NSView(), dpiApply])
-        dpiActions.orientation = .horizontal
-        dpiActions.alignment = .centerY
-        dpiActions.spacing = 4
+        let dpiActionButtons = NSStackView(views: [dpiPreset, NSView(), dpiApply])
+        dpiActionButtons.orientation = .horizontal
+        dpiActionButtons.alignment = .centerY
+        dpiActionButtons.spacing = 4
+
+        let dpiActions = NSStackView(views: [dpiActionButtons, dpiPersist])
+        dpiActions.orientation = .vertical
+        dpiActions.alignment = .width
+        dpiActions.spacing = 2
 
         let dpiStack = NSStackView(views: [dpiHeader, dpiRange, dpiActions])
         dpiStack.orientation = .vertical
@@ -478,6 +483,7 @@ final class VisualConfigWindowController: NSWindowController, NSWindowDelegate {
 
         stack.setCustomSpacing(14, after: stack.arrangedSubviews.last!)
         stack.addArrangedSubview(dpiCard)
+        dpiCard.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
 
         // ── Scroll view ──
 
