@@ -14,6 +14,7 @@
 "language.english" = "English";
 "language.french" = "Français";
 "language.relaunch.title" = "Relance impossible";
+"language.relaunch.message" = "Votre choix de langue est enregistré. Rouvrez G502 Stage Mouse pour l’appliquer.";
 
 "menu.status" = "G502 Stage Mouse : %@";
 "menu.version" = "Version %@ · V1 événementielle";
@@ -59,6 +60,14 @@
 "battery.chargingError" = "Batterie : %@ · erreur de charge";
 "battery.powerplayNotCharging" = "Batterie : %@ · POWERPLAY connecté, pas en charge";
 "battery.notCharging" = "Batterie : %@ · pas en charge";
+"battery.detail.mouseDisconnected" = "souris non connectée";
+"battery.detail.unavailable" = "indisponible sur ce périphérique";
+"battery.detail.reading" = "lecture HID++ en cours…";
+"battery.detail.charging" = "%@ · en charge via POWERPLAY";
+"battery.detail.charged" = "%@ · chargée";
+"battery.detail.chargingError" = "%@ · erreur de charge";
+"battery.detail.powerplayNotCharging" = "%@ · POWERPLAY connecté, pas en charge";
+"battery.detail.notCharging" = "%@ · pas en charge";
 
 "accessibility.blocked.title" = "Bouton détecté — action bloquée par macOS";
 "accessibility.blocked.message" = "POWERPLAY transmet correctement le bouton, mais macOS interdit encore à cette version de déclencher Mission Control et les raccourcis.\n\nDans Accessibilité, supprime l’ancienne « G502 Stage Mouse » si nécessaire, ajoute la nouvelle app depuis Applications, puis active son interrupteur.";
