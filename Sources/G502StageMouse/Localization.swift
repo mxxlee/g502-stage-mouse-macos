@@ -39,6 +39,10 @@ enum L10n {
         String(format: string(key), locale: activeLocale, arguments: arguments)
     }
 
+    static func formattedNumber(_ value: Double, fractionDigits: Int) -> String {
+        value.formatted(.number.locale(activeLocale).precision(.fractionLength(fractionDigits)))
+    }
+
     private static let activeLanguage = selectedLanguage
     private static let selectedBundle = bundle(for: activeLanguage)
     private static let englishBundle = bundle(for: .english)

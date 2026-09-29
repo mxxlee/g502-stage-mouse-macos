@@ -1501,13 +1501,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let delayIndex = min(reconnectAttempt, reconnectDelays.count - 1)
         let delay = reconnectDelays[delayIndex]
         reconnectAttempt = min(reconnectAttempt + 1, reconnectDelays.count - 1)
+        let statusDelay = L10n.formattedNumber(delay, fractionDigits: delay < 1 ? 1 : 0)
+        let diagnosticDelay = L10n.formattedNumber(delay, fractionDigits: 1)
         reconnectStatus = L10n.format(
             "status.reconnectIn",
-            delay.formatted(.number.precision(.fractionLength(delay < 1 ? 1 : 0)))
+            statusDelay
         )
         appendButtonSpyDiagnostic(L10n.format(
             reason.diagnosticKey,
-            String(delay),
+            diagnosticDelay,
             delayIndex + 1,
             reconnectDelays.count
         ))
