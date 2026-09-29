@@ -14,16 +14,16 @@ enum Action: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .none: return "Aucune action"
-        case .historyBack: return "Retour arrière"
-        case .historyForward: return "Retour avant"
-        case .missionControl: return "Mission Control (3 doigts vers le haut)"
-        case .appExpose: return "Fenêtres de l’app (3 doigts vers le bas)"
-        case .nextApp: return "App suivante"
-        case .previousApp: return "App précédente"
-        case .leftSpace: return "Espace précédent"
-        case .rightSpace: return "Espace suivant"
-        case .showDesktop: return "Afficher le bureau"
+        case .none: return L10n.string("action.none")
+        case .historyBack: return L10n.string("action.historyBack")
+        case .historyForward: return L10n.string("action.historyForward")
+        case .missionControl: return L10n.string("action.missionControl")
+        case .appExpose: return L10n.string("action.appExpose")
+        case .nextApp: return L10n.string("action.nextApp")
+        case .previousApp: return L10n.string("action.previousApp")
+        case .leftSpace: return L10n.string("action.leftSpace")
+        case .rightSpace: return L10n.string("action.rightSpace")
+        case .showDesktop: return L10n.string("action.showDesktop")
         }
     }
 }
