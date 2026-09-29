@@ -517,17 +517,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
         process.arguments = ["-n", Bundle.main.bundlePath]
-        do {
-            try process.run()
-            NSApp.terminate(nil)
-        } catch {
-            rebuildMenu()
-            let alert = NSAlert()
-            alert.messageText = L10n.string("language.relaunch.title")
-            alert.informativeText = L10n.string("language.relaunch.message")
-            alert.addButton(withTitle: L10n.string("common.close"))
-            alert.runModal()
-        }
+        LanguageRelaunch.run(
+            process: process,
+            terminate: { NSApp.terminate(nil) },
+            onFailure: {
+                rebuildMenu()
+                let alert = NSAlert()
+                alert.messageText = L10n.string("language.relaunch.title")
+                alert.informativeText = L10n.string("language.relaunch.message")
+                alert.addButton(withTitle: L10n.string("common.close"))
+                alert.runModal()
+            }
+        )
     }
 
     private func requestAccessibility() {
@@ -1904,7 +1905,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func offerUpdate(_ manifest: LocalUpdateManifest, archiveURL: URL) {
         let alert = NSAlert()
         alert.messageText = L10n.format("update.available.title", manifest.version)
-        alert.informativeText = manifest.notes ?? L10n.string("update.available.message")
+        alert.informativeText = L10n.string("update.available.message")
         alert.addButton(withTitle: L10n.string("update.installAndRelaunch"))
         alert.addButton(withTitle: L10n.string("update.later"))
         if alert.runModal() == .alertFirstButtonReturn {
