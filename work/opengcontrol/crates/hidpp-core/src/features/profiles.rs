@@ -568,6 +568,13 @@ impl OnboardProfiles {
         Ok(Self::get_profile_headers(device)?.len() as u8)
     }
 
+    /// The profile directory as `(data sector, enabled)` pairs, in profile order.
+    pub fn profile_headers<T: HidTransport>(
+        device: &HidppDevice<T>,
+    ) -> Result<Vec<(u16, u8)>, HidppError> {
+        Self::get_profile_headers(device)
+    }
+
     /// The data sector backing profile `index` (0-based), read from the profile
     /// directory. On a factory-fresh device this may be a read-only ROM sector
     /// (`>= 0x0100`); [`Self::write_raw_sector`] refuses to write those.

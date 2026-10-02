@@ -6,6 +6,7 @@ use hidpp_core::features::{
 };
 use serde::Serialize;
 
+use super::rawbackup::RawBackup;
 use crate::context::DeviceContext;
 use crate::output::{json, OutputFormat};
 use crate::spinner::Spinner;
@@ -54,6 +55,24 @@ pub enum ProfileCommand {
         /// Profile index (0-based). Defaults to the active profile.
         #[arg(long)]
         profile: Option<u8>,
+    },
+    /// Save a byte-for-byte copy of the mouse's profile memory to a JSON file.
+    ///
+    /// Read-only. Refuses to overwrite an existing file. Keep the file safe: it is the
+    /// only lossless way to undo a flash write.
+    BackupRaw {
+        /// Output file path
+        #[arg(value_name = "OUTPUT")]
+        output_file: PathBuf,
+    },
+    /// Write a file made by 'backup-raw' back to the mouse's user flash (checks the
+    /// device, sector size and CRCs first, then verifies each write by read-back).
+    RestoreRaw {
+        /// File made with 'profile backup-raw'
+        file: PathBuf,
+        /// Confirm that user flash may be overwritten
+        #[arg(long)]
+        yes: bool,
     },
     /// Clone a profile from another mouse onto this one (sector-addressed devices).
     ///
@@ -441,6 +460,105 @@ pub fn handle_profile(
                 }
             }
         }
+        ProfileCommand::BackupRaw { output_file } => {
+            if output_file.exists() {
+                return Err(format!(
+                    "{} already exists; choose a new file name",
+                    output_file.display()
+                ));
+            }
+            let info = OnboardProfiles::get_info(ctx.device()).map_err(|e| e.to_string())?;
+            if info.memory_model != 0x01 {
+                return Err("raw backup supports sector-addressed devices only".into());
+            }
+            let headers =
+                OnboardProfiles::profile_headers(ctx.device()).map_err(|e| e.to_string())?;
+            let referenced: std::collections::BTreeSet<u16> =
+                headers.iter().map(|(sector, _)| *sector).collect();
+            let mut wanted: std::collections::BTreeSet<u16> =
+                (0..info.sector_count as u16).collect();
+            wanted.extend(referenced.iter().copied());
+            let mut backup = RawBackup {
+                pid: ctx.device_info().pid,
+                profile_size: info.profile_size,
+                sectors: Default::default(),
+            };
+            for sector in wanted {
+                match OnboardProfiles::read_raw_sector(ctx.device(), sector) {
+                    Ok(data) => {
+                        backup.sectors.insert(sector, data);
+                    }
+                    Err(e) if referenced.contains(&sector) => {
+                        return Err(format!("Failed to read sector {sector:#06X}: {e}"));
+                    }
+                    Err(_) => {}
+                }
+            }
+            let text = serde_json::to_string_pretty(&backup.to_json())
+                .map_err(|e| format!("Serialize error: {e}"))?;
+            std::fs::write(output_file, text).map_err(|e| format!("Write error: {e}"))?;
+            let writable = backup
+                .restorable_sectors(backup.pid, backup.profile_size)
+                .map_err(|e| format!("Backup is not restorable: {e}"))?;
+            match output {
+                OutputFormat::Human => println!(
+                    "Saved {} sectors ({} restorable) to {}",
+                    backup.sectors.len(),
+                    writable.len(),
+                    output_file.display()
+                ),
+                OutputFormat::Json => json::print_json(&serde_json::json!({
+                    "file": output_file.display().to_string(),
+                    "sectors": backup.sectors.len(),
+                    "restorable": writable.iter().map(|s| format!("{s:#06X}")).collect::<Vec<_>>(),
+                })),
+            }
+        }
+
+        ProfileCommand::RestoreRaw { file, yes } => {
+            let text = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
+            let value: serde_json::Value =
+                serde_json::from_str(&text).map_err(|e| format!("Parse error: {e}"))?;
+            let backup = RawBackup::from_json(&value)?;
+            let info = OnboardProfiles::get_info(ctx.device()).map_err(|e| e.to_string())?;
+            let writable = backup.restorable_sectors(ctx.device_info().pid, info.profile_size)?;
+            if !*yes {
+                return Err(format!(
+                    "This would check {} user sectors and rewrite any that differ. Re-run with --yes.",
+                    writable.len()
+                ));
+            }
+            let mut rewritten = Vec::new();
+            for sector in &writable {
+                let wanted = &backup.sectors[sector];
+                let current = OnboardProfiles::read_raw_sector(ctx.device(), *sector)
+                    .map_err(|e| e.to_string())?;
+                if &current == wanted {
+                    continue;
+                }
+                let mut data = wanted.clone();
+                OnboardProfiles::write_raw_sector(ctx.device(), *sector, &mut data)
+                    .map_err(|e| format!("Failed to write sector {sector:#06X}: {e}"))?;
+                let after = OnboardProfiles::read_raw_sector(ctx.device(), *sector)
+                    .map_err(|e| e.to_string())?;
+                if &after != wanted {
+                    return Err(format!("Read-back mismatch on sector {sector:#06X}"));
+                }
+                rewritten.push(*sector);
+            }
+            match output {
+                OutputFormat::Human => println!(
+                    "Checked {} sectors, rewrote {}",
+                    writable.len(),
+                    rewritten.len()
+                ),
+                OutputFormat::Json => json::print_json(&serde_json::json!({
+                    "checked": writable.len(),
+                    "rewritten": rewritten.iter().map(|s| format!("{s:#06X}")).collect::<Vec<_>>(),
+                })),
+            }
+        }
+
         ProfileCommand::Clone {
             from,
             profile,

@@ -8,6 +8,7 @@ pub mod doctor;
 pub mod dpi;
 pub mod polling;
 pub mod profile;
+pub mod rawbackup;
 pub mod selector;
 pub mod tui;
 
