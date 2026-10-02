@@ -21,6 +21,15 @@ if [[ ! -x "$HELPER_BIN" ]]; then
   exit 1
 fi
 
+PERSONAL_PATHS=$(/usr/bin/strings "$HELPER_BIN" | /usr/bin/grep -cF "$HOME" || true)
+if [[ "$PERSONAL_PATHS" -gt 0 ]]; then
+  if [[ "${RELEASE_BUILD:-0}" == "1" ]]; then
+    echo "Le module HID++ contient le chemin personnel $HOME. Reconstruisez-le avec RUSTFLAGS=\"--remap-path-prefix=\$HOME=~\" (voir docs/RELEASING.md)."
+    exit 1
+  fi
+  echo "Avertissement : le module HID++ contient des chemins personnels. N'utilisez pas ce build pour une publication."
+fi
+
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$MODULE_CACHE"
 
 for LANGUAGE in en fr; do
