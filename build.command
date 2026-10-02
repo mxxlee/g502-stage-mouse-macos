@@ -3,13 +3,13 @@ set -euo pipefail
 
 SCRIPT_DIR=${0:A:h}
 APP_NAME="G502 Stage Mouse"
-APP_VERSION="14.7"
-BUILD_NUMBER="147"
+APP_VERSION="14.8"
+BUILD_NUMBER="148"
 BUILD_DIR="$SCRIPT_DIR/build"
 STAGING_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/g502-stage-mouse-build.XXXXXX")
 APP_DIR="$STAGING_DIR/$APP_NAME.app"
 MODULE_CACHE="$BUILD_DIR/module-cache"
-ARCHIVE_NAME="G502X-v14.7-V1.zip"
+ARCHIVE_NAME="G502X-v14.8-V1.zip"
 ARCHIVE="$BUILD_DIR/$ARCHIVE_NAME"
 MANIFEST="$BUILD_DIR/manifest.json"
 LOCAL_UPDATE_DIR="$HOME/Library/Application Support/G502StageMouse/Updates"
@@ -19,6 +19,15 @@ HELPER_BIN="$SCRIPT_DIR/work/opengcontrol/target/release/opengcontrol"
 if [[ ! -x "$HELPER_BIN" ]]; then
   echo "Module HID++ manquant : $HELPER_BIN"
   exit 1
+fi
+
+PERSONAL_PATHS=$(/usr/bin/strings "$HELPER_BIN" | /usr/bin/grep -cF "$HOME" || true)
+if [[ "$PERSONAL_PATHS" -gt 0 ]]; then
+  if [[ "${RELEASE_BUILD:-0}" == "1" ]]; then
+    echo "Le module HID++ contient le chemin personnel $HOME. Reconstruisez-le avec RUSTFLAGS=\"--remap-path-prefix=\$HOME=~\" (voir docs/RELEASING.md)."
+    exit 1
+  fi
+  echo "Avertissement : le module HID++ contient des chemins personnels. N'utilisez pas ce build pour une publication."
 fi
 
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$MODULE_CACHE"

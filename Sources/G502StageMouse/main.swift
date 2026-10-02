@@ -442,7 +442,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         stateItem.isEnabled = false
         menu.addItem(stateItem)
 
-        let versionItem = NSMenuItem(title: L10n.format("menu.version", "14.7"), action: nil, keyEquivalent: "")
+        let versionItem = NSMenuItem(title: L10n.format(
+            "menu.version",
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        ), action: nil, keyEquivalent: "")
         versionItem.isEnabled = false
         menu.addItem(versionItem)
 
