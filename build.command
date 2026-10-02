@@ -3,13 +3,13 @@ set -euo pipefail
 
 SCRIPT_DIR=${0:A:h}
 APP_NAME="G502 Stage Mouse"
-APP_VERSION="14.7"
-BUILD_NUMBER="147"
+APP_VERSION="14.8"
+BUILD_NUMBER="148"
 BUILD_DIR="$SCRIPT_DIR/build"
 STAGING_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/g502-stage-mouse-build.XXXXXX")
 APP_DIR="$STAGING_DIR/$APP_NAME.app"
 MODULE_CACHE="$BUILD_DIR/module-cache"
-ARCHIVE_NAME="G502X-v14.7-V1.zip"
+ARCHIVE_NAME="G502X-v14.8-V1.zip"
 ARCHIVE="$BUILD_DIR/$ARCHIVE_NAME"
 MANIFEST="$BUILD_DIR/manifest.json"
 LOCAL_UPDATE_DIR="$HOME/Library/Application Support/G502StageMouse/Updates"

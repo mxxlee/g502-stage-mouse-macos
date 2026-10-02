@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SOURCE=${1:-Sources/G502StageMouse/main.swift}
-ARCHIVE=${2:-build/G502X-v14.7-V1.zip}
-EXPECTED_VERSION=${3:-14.7}
+ARCHIVE=${2:-build/G502X-v14.8-V1.zip}
+EXPECTED_VERSION=${3:-14.8}
 
 for FORBIDDEN in \
   'activateAllWindows' \
