@@ -14,8 +14,6 @@ enum MouseDevice: String, CaseIterable {
 
     var supportsLegacyProfileRestore: Bool { self != .g502xWired }
 
-    var supportsPersistentDPI: Bool { self != .g502xWired }
-
     func calibrationKey(button: Int) -> String {
         let prefix = self == .g502xWired ? "g502x.wired" : "g502x"
         return "\(prefix).physicalIndex.g\(button)"

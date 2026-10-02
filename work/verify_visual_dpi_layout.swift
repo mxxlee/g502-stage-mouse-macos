@@ -1,11 +1,5 @@
 import AppKit
 
-enum Action: String, CaseIterable {
-    case none
-
-    var title: String { L10n.string("action.none") }
-}
-
 enum L10n {
     static let french: [String: String] = {
         guard CommandLine.arguments.count == 2,
@@ -47,6 +41,14 @@ enum VerifyVisualDPILayout {
             getMappings: { [:] },
             setMapping: { _, _ in },
             startCalibration: { _ in },
+            getDesktopSwipeButton: { nil },
+            setDesktopSwipeButton: { _ in },
+            getDesktopSwipeReversed: { false },
+            setDesktopSwipeReversed: { _ in },
+            getDesktopSwipeDistance: { DesktopSwipeGesture.defaultActivationDistance },
+            setDesktopSwipeDistance: { _ in },
+            readPollingRate: { _ in },
+            setPollingRate: { _, _ in },
             readDPI: { _ in },
             setDPI: { _, _, _ in }
         )
@@ -81,6 +83,16 @@ enum VerifyVisualDPILayout {
             guard frame.width + 1 >= control.intrinsicContentSize.width else {
                 fail("French DPI \(name) is compressed: frame \(frame), intrinsic \(control.intrinsicContentSize)")
             }
+        }
+        guard let status = find(NSTextField.self, in: card, matching: {
+            $0.stringValue == L10n.string("dpi.readingCurrent")
+        }) else {
+            fail("DPI status label is not inside the DPI card, so its text can never be seen")
+        }
+        let statusFrame = status.convert(status.bounds, to: card)
+        guard statusFrame.height > 0, statusFrame.minY >= 0, statusFrame.maxY <= card.bounds.maxY,
+              statusFrame.maxX <= card.bounds.maxX, !status.isHidden else {
+            fail("DPI status label is clipped or hidden: frame \(statusFrame), card \(card.bounds)")
         }
         print("French DPI controls fit inside \(Int(inner.width)) pt card content width")
     }

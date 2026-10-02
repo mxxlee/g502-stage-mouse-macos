@@ -1,4 +1,5 @@
-"action.none" = "Aucune action";
+"action.systemDefault" = "Défaut du système";
+"action.noAction" = "Aucune action";
 "action.historyBack" = "Retour arrière";
 "action.historyForward" = "Retour avant";
 "action.missionControl" = "Mission Control (balayer vers le haut avec trois doigts)";
@@ -33,6 +34,11 @@
 "menu.restartDetection" = "Relancer la détection";
 "menu.checkForUpdates" = "Rechercher les mises à jour…";
 "menu.quit" = "Quitter";
+"window.menu" = "Fenêtre";
+"window.close" = "Fermer la fenêtre";
+"window.minimize" = "Placer dans le Dock";
+"window.zoom" = "Zoom";
+"window.fullScreen" = "Passer en plein écran";
 
 "status.sleeping" = "En pause — réveil automatique";
 "status.buttonsNeedAccessibility" = "Boutons détectés — autoriser Accessibilité";
@@ -143,7 +149,6 @@
 "visual.detection.waiting" = "✓ Attente de détection…";
 "visual.detection.action" = "✓ G%d · %@";
 "visual.detection.detected" = "✓ G%d détecté · %@";
-"visual.detection.noAction" = "aucune action";
 "visual.button.g3" = "G3 · Molette";
 "visual.button.g4" = "G4 · Arrière";
 "visual.button.g5" = "G5 · Avant";
@@ -152,6 +157,12 @@
 "visual.button.g8" = "G8 · DPI +";
 "visual.button.g9" = "G9 · Profil";
 "visual.button.generic" = "G%d";
+"swipe.title" = "Balayage de bureau";
+"swipe.off" = "Désactivé";
+"swipe.help" = "Maintenez le bouton choisi et déplacez la souris à gauche ou à droite pour changer d’espace ; un appui court garde son action habituelle.";
+"swipe.distance" = "Distance du balayage";
+"swipe.distance.value" = "%d pt";
+"swipe.reverse" = "Inverser le sens";
 
 "dpi.title" = "Sensibilité";
 "dpi.unit" = "DPI";
@@ -173,6 +184,15 @@
 "dpi.error.title" = "Erreur DPI";
 "dpi.error.busy" = "Une opération DPI est déjà en cours.";
 "dpi.error.unreadableResponse" = "Réponse DPI illisible : %@";
+"polling.title" = "Fréquence d’interrogation";
+"polling.value" = "%d Hz";
+"polling.help" = "Réduisez-la à 500 Hz si les fenêtres traînent quand vous les déplacez.";
+"polling.reading" = "Lecture…";
+"polling.unavailable" = "Fréquence indisponible";
+"polling.applied" = "%d Hz ✓";
+"polling.failed" = "Impossible de changer la fréquence";
+"diagnostic.pollingNotRestored" = "Fréquence d’interrogation non rétablie : %@";
+"diagnostic.dpiNotRestored" = "DPI non rétabli : %@";
 
 "device.logitechReceiver" = "Récepteur Logitech";
 "device.g502X" = "G502 X";

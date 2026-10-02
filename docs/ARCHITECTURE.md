@@ -15,6 +15,7 @@ G502 X / receiver / POWERPLAY
        ├─ macOS shortcut actions
        ├─ hover recovery listener
        ├─ middle-button free-scroll
+       ├─ desktop swipe gesture
        └─ sleep/session lifecycle
 ```
 
@@ -26,6 +27,16 @@ local updater, and diagnostics.
 
 `Sources/G502StageMouse/VisualConfig.swift` owns the SceneKit mouse view and the
 visual mapping/DPI window. SceneKit rendering pauses when the window closes.
+
+`Sources/G502StageMouse/DesktopSwipeGesture.swift` is a pure state machine for
+the optional desktop swipe: hold, accumulated movement, and a one-shot
+left/right decision. It never posts events. `AppDelegate` feeds it accepted
+button transitions (HID++ `0x8110` first, IOHID/CGEvent as fallback) and, only
+while a trigger is held, a temporary `.listenOnly` movement tap. That tap does
+not exist when the gesture is idle, ignores synthetic hover-recovery events, and
+is removed on cancellation (another button, free-scroll, calibration, sleep,
+disconnect, tap failure, or termination). The trigger's native click is
+consumed and replayed only for a short G4/G5 press mapped to System Default. **No Action** blocks the native click and does nothing.
 
 The hover listener uses a separate `.listenOnly` event tap. It never consumes
 the user's click. Recovery work is scheduled only after left or right mouse-up

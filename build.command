@@ -43,6 +43,35 @@ CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
   "$SCRIPT_DIR/work/verify_mouse_device.swift" \
   "$SCRIPT_DIR/Sources/G502StageMouse/MouseDevice.swift" \
   -o "$MODULE_CACHE/verify_mouse_device"
+
+CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
+  -parse-as-library \
+  "$SCRIPT_DIR/work/verify_desktop_swipe_gesture.swift" \
+  "$SCRIPT_DIR/Sources/G502StageMouse/DesktopSwipeGesture.swift" \
+  -o "$MODULE_CACHE/verify_desktop_swipe_gesture"
+
+CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
+  -parse-as-library \
+  "$SCRIPT_DIR/work/verify_action.swift" \
+  "$SCRIPT_DIR/Sources/G502StageMouse/Action.swift" \
+  "$SCRIPT_DIR/Sources/G502StageMouse/Localization.swift" \
+  "$SCRIPT_DIR/Sources/G502StageMouse/DesktopSwipeGesture.swift" \
+  "$SCRIPT_DIR/Sources/G502StageMouse/DockNotification.swift" \
+  -o "$MODULE_CACHE/verify_action"
+
+CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
+  -parse-as-library \
+  -sdk "$SDK" \
+  -framework AppKit \
+  -framework SceneKit \
+  "$SCRIPT_DIR/work/verify_visual_dpi_layout.swift" \
+  "$SCRIPT_DIR/Sources/G502StageMouse/VisualConfig.swift" \
+  "$SCRIPT_DIR/Sources/G502StageMouse/Action.swift" \
+  "$SCRIPT_DIR/Sources/G502StageMouse/DesktopSwipeGesture.swift" \
+  -o "$MODULE_CACHE/verify_visual_dpi_layout"
+"$MODULE_CACHE/verify_visual_dpi_layout" "$SCRIPT_DIR/Resources/fr.lproj/Localizable.strings"
+"$MODULE_CACHE/verify_action"
+"$MODULE_CACHE/verify_desktop_swipe_gesture"
 "$MODULE_CACHE/verify_mouse_device"
 
 CLANG_MODULE_CACHE_PATH="$MODULE_CACHE" /usr/bin/swiftc \
