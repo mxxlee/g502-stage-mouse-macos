@@ -91,7 +91,7 @@ Enable **Free-scroll while holding the wheel**, hold the middle button, and move
 the mouse. Motion is converted to smooth vertical and horizontal scrolling.
 High-frequency events are coalesced over 8 ms to reduce WindowServer pressure.
 
-A movement under 3 points remains a short click: the configured G3 action runs
+A movement under 10 points remains a short click: the configured G3 action runs
 normally. If G3 is set to **No action**, the app replays a native middle click.
 
 ## Compatibility

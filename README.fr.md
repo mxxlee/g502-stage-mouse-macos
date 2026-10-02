@@ -95,7 +95,7 @@ et déplacez la souris. Le mouvement devient un défilement fluide vertical et
 horizontal. Les événements très fréquents sont regroupés sur 8 ms pour réduire
 la pression sur WindowServer.
 
-Sous 3 points de déplacement, le geste reste un clic court et l'action G3
+Sous 10 points de déplacement, le geste reste un clic court et l'action G3
 s'exécute normalement. Si G3 est réglé sur **Aucune action**, un clic molette
 natif est rejoué.
 

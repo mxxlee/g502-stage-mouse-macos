@@ -169,13 +169,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let hoverRecoveryPreferenceKey = "g502x.hoverRecoveryEnabled"
     private static let hoverRecoveryKeyboardQuietPeriod: TimeInterval = 0.4
     private static let freeScrollPreferenceKey = "g502x.freeScrollEnabled"
-    private static let freeScrollActivationDistance: CGFloat = 3
+    private static let freeScrollActivationDistance: CGFloat = 10
     private static let freeScrollMultiplier: CGFloat = 2
     private var statusItem: NSStatusItem!
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var hoverEventTap: CFMachPort?
     private var hoverRunLoopSource: CFRunLoopSource?
+    private var freeScrollEventTap: CFMachPort?
+    private var freeScrollRunLoopSource: CFRunLoopSource?
     private var hoverRecoveryEnabled = false
     private var hoverRecoveryWorkItem: DispatchWorkItem?
     private var hoverRecoveryBurstGeneration = 0
@@ -894,6 +896,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             freeScrollDisplacementY = 0
             freeScrollPendingX = 0
             freeScrollPendingY = 0
+            startFreeScrollMovementTap()
             return nil
         }
 
@@ -1008,7 +1011,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         event.post(tap: .cghidEventTap)
     }
 
+    private func startFreeScrollMovementTap() {
+        guard freeScrollEventTap == nil, AXIsProcessTrusted() else { return }
+        let mask = (1 << CGEventType.mouseMoved.rawValue)
+            | (1 << CGEventType.otherMouseDragged.rawValue)
+        let callback: CGEventTapCallBack = { _, type, event, userInfo in
+            guard let userInfo else { return Unmanaged.passUnretained(event) }
+            let app = Unmanaged<AppDelegate>.fromOpaque(userInfo).takeUnretainedValue()
+            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                app.resetFreeScrollTracking()
+                return Unmanaged.passUnretained(event)
+            }
+            if event.getIntegerValueField(.eventSourceUserData)
+                == AppDelegate.syntheticMouseEventMarker {
+                return Unmanaged.passUnretained(event)
+            }
+            return app.handleFreeScrollDrag(event)
+        }
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: CGEventMask(mask),
+            callback: callback,
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else { return }
+        freeScrollEventTap = tap
+        freeScrollRunLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), freeScrollRunLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    private func stopFreeScrollMovementTap() {
+        if let freeScrollRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), freeScrollRunLoopSource, .commonModes)
+        }
+        if let freeScrollEventTap {
+            CGEvent.tapEnable(tap: freeScrollEventTap, enable: false)
+            CFMachPortInvalidate(freeScrollEventTap)
+        }
+        freeScrollEventTap = nil
+        freeScrollRunLoopSource = nil
+    }
+
     private func resetFreeScrollTracking() {
+        stopFreeScrollMovementTap()
         freeScrollGeneration += 1
         freeScrollFlushWorkItem?.cancel()
         freeScrollFlushWorkItem = nil
@@ -1055,12 +1102,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .historyBack: auxiliaryMouseButton(number: 3)
         case .historyForward: auxiliaryMouseButton(number: 4)
         case .missionControl: shortcut(keyCode: 126, flags: .maskControl)
-        case .appExpose: shortcut(keyCode: 125, flags: .maskControl)
+        case .appExpose:
+            if !DockNotification.toggleAppExpose() {
+                shortcut(keyCode: 125, flags: .maskControl)
+            }
         case .nextApp: shortcut(keyCode: 48, flags: .maskCommand)
         case .previousApp: shortcut(keyCode: 48, flags: [.maskCommand, .maskShift])
         case .leftSpace: shortcut(keyCode: 123, flags: .maskControl)
         case .rightSpace: shortcut(keyCode: 124, flags: .maskControl)
-        case .showDesktop: shortcut(keyCode: 103, flags: [])
+        case .showDesktop:
+            if !DockNotification.toggleShowDesktop() {
+                shortcut(keyCode: 103, flags: [])
+            }
         }
     }
 
@@ -1123,8 +1176,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func shortcut(keyCode: CGKeyCode, flags: CGEventFlags) {
         guard let down = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true),
               let up = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: false) else { return }
-        down.flags = flags
-        up.flags = flags
+        let needsFunctionFlag = (123...126).contains(Int(keyCode)) || keyCode == 103
+        let eventFlags = needsFunctionFlag ? flags.union(.maskSecondaryFn) : flags
+        down.flags = eventFlags
+        up.flags = eventFlags
         down.post(tap: .cghidEventTap)
         usleep(35_000)
         up.post(tap: .cghidEventTap)
