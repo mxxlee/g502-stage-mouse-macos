@@ -4,30 +4,6 @@ import CryptoKit
 import IOKit.hid
 import ServiceManagement
 
-enum Action: String, CaseIterable {
-    case none
-    case historyBack, historyForward
-    case missionControl, appExpose
-    case nextApp, previousApp
-    case leftSpace, rightSpace
-    case showDesktop
-
-    var title: String {
-        switch self {
-        case .none: return L10n.string("action.none")
-        case .historyBack: return L10n.string("action.historyBack")
-        case .historyForward: return L10n.string("action.historyForward")
-        case .missionControl: return L10n.string("action.missionControl")
-        case .appExpose: return L10n.string("action.appExpose")
-        case .nextApp: return L10n.string("action.nextApp")
-        case .previousApp: return L10n.string("action.previousApp")
-        case .leftSpace: return L10n.string("action.leftSpace")
-        case .rightSpace: return L10n.string("action.rightSpace")
-        case .showDesktop: return L10n.string("action.showDesktop")
-        }
-    }
-}
-
 private struct LocalUpdateManifest: Decodable {
     let version: String
     let archive: String
@@ -169,13 +145,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let hoverRecoveryPreferenceKey = "g502x.hoverRecoveryEnabled"
     private static let hoverRecoveryKeyboardQuietPeriod: TimeInterval = 0.4
     private static let freeScrollPreferenceKey = "g502x.freeScrollEnabled"
-    private static let freeScrollActivationDistance: CGFloat = 3
+    private static let desktopSwipePreferenceKey = "g502x.desktopSwipeButton"
+    private static let desktopSwipeButtons = 4...9
+    private static let desktopSwipeDistanceKey = "g502x.desktopSwipeDistance"
+    private static let desktopSwipeReversedKey = "g502x.desktopSwipeReversed"
+    private static let pollingRatePreferenceKey = "g502x.pollingRateHz"
+    private static let dpiPreferenceKey = "g502x.dpiValue"
+    private static let pollingRates = [125, 250, 500, 1000]
+    private static let freeScrollActivationDistance: CGFloat = 10
     private static let freeScrollMultiplier: CGFloat = 2
     private var statusItem: NSStatusItem!
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var hoverEventTap: CFMachPort?
     private var hoverRunLoopSource: CFRunLoopSource?
+    private var freeScrollEventTap: CFMachPort?
+    private var freeScrollRunLoopSource: CFRunLoopSource?
+    private var swipeEventTap: CFMachPort?
+    private var swipeRunLoopSource: CFRunLoopSource?
+    private var desktopSwipeButton: Int?
+    private var desktopSwipeDistance = DesktopSwipeGesture.defaultActivationDistance
+    private var desktopSwipeReversed = false
+    private var desktopSwipeGesture: DesktopSwipeGesture?
     private var hoverRecoveryEnabled = false
     private var hoverRecoveryWorkItem: DispatchWorkItem?
     private var hoverRecoveryBurstGeneration = 0
@@ -242,7 +233,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         disableLegacyHoverActivation()
         loadHoverRecoverySetting()
         loadFreeScrollSetting()
+        loadDesktopSwipeSetting()
         makeMenu()
+        makeMainMenu()
         observePowerState()
         startHIDMonitor()
         startButtonSpy()
@@ -294,7 +287,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for button in buttons {
             let key = "g502x.g\(button)"
             mappings[button] = UserDefaults.standard.string(forKey: key).flatMap(Action.init(rawValue:))
-                ?? defaults[button] ?? Action.none
+                ?? defaults[button] ?? Action.systemDefault
         }
     }
 
@@ -314,6 +307,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func applySelectedDevice(_ device: MouseDevice) {
         guard selectedDevice != device else { return }
+        cancelDesktopSwipe()
         selectedDevice = device
         loadPhysicalIndexMappings()
         refreshBatteryUI()
@@ -337,6 +331,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func loadFreeScrollSetting() {
         freeScrollEnabled = UserDefaults.standard.bool(forKey: Self.freeScrollPreferenceKey)
+    }
+
+    private func setDesktopSwipeReversed(_ reversed: Bool) {
+        desktopSwipeReversed = reversed
+        UserDefaults.standard.set(reversed, forKey: Self.desktopSwipeReversedKey)
+    }
+
+    private func setDesktopSwipeDistance(_ distance: Double) {
+        desktopSwipeDistance = DesktopSwipeGesture.clampedDistance(distance)
+        UserDefaults.standard.set(desktopSwipeDistance, forKey: Self.desktopSwipeDistanceKey)
+    }
+
+    private func loadDesktopSwipeSetting() {
+        let defaults = UserDefaults.standard
+        desktopSwipeReversed = defaults.bool(forKey: Self.desktopSwipeReversedKey)
+        if defaults.object(forKey: Self.desktopSwipeDistanceKey) != nil {
+            desktopSwipeDistance = DesktopSwipeGesture.clampedDistance(
+                defaults.double(forKey: Self.desktopSwipeDistanceKey)
+            )
+        }
+        guard defaults.object(forKey: Self.desktopSwipePreferenceKey) != nil else { return }
+        let stored = defaults.integer(forKey: Self.desktopSwipePreferenceKey)
+        if Self.desktopSwipeButtons.contains(stored) {
+            desktopSwipeButton = stored
+        } else {
+            defaults.removeObject(forKey: Self.desktopSwipePreferenceKey)
+        }
+    }
+
+    private func setDesktopSwipeButton(_ button: Int?) {
+        cancelDesktopSwipe()
+        let defaults = UserDefaults.standard
+        if let button, Self.desktopSwipeButtons.contains(button) {
+            desktopSwipeButton = button
+            defaults.set(button, forKey: Self.desktopSwipePreferenceKey)
+        } else {
+            desktopSwipeButton = nil
+            defaults.removeObject(forKey: Self.desktopSwipePreferenceKey)
+        }
+    }
+
+    private func makeMainMenu() {
+        let mainMenu = NSMenu()
+
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu()
+        let quit = NSMenuItem(title: L10n.string("menu.quit"), action: #selector(quitApp), keyEquivalent: "q")
+        quit.target = self
+        appMenu.addItem(quit)
+        appItem.submenu = appMenu
+        mainMenu.addItem(appItem)
+
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: L10n.string("window.menu"))
+        windowMenu.addItem(NSMenuItem(
+            title: L10n.string("window.close"),
+            action: #selector(NSWindow.performClose(_:)),
+            keyEquivalent: "w"
+        ))
+        windowMenu.addItem(NSMenuItem(
+            title: L10n.string("window.minimize"),
+            action: #selector(NSWindow.performMiniaturize(_:)),
+            keyEquivalent: "m"
+        ))
+        windowMenu.addItem(NSMenuItem(
+            title: L10n.string("window.zoom"),
+            action: #selector(NSWindow.performZoom(_:)),
+            keyEquivalent: ""
+        ))
+        let fullScreen = NSMenuItem(
+            title: L10n.string("window.fullScreen"),
+            action: #selector(NSWindow.toggleFullScreen(_:)),
+            keyEquivalent: "f"
+        )
+        fullScreen.keyEquivalentModifierMask = [.command, .control]
+        windowMenu.addItem(fullScreen)
+        windowItem.submenu = windowMenu
+        mainMenu.addItem(windowItem)
+
+        NSApp.mainMenu = mainMenu
+        NSApp.windowsMenu = windowMenu
     }
 
     private func makeMenu() {
@@ -614,7 +689,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         lastAcceptedButtonEvents[event.button] = event
 
-        guard event.pressed else { return true }
+        if event.pressed, event.button != desktopSwipeButton {
+            cancelDesktopSwipe()
+        }
+
+        guard event.pressed else {
+            if event.button == desktopSwipeButton {
+                finishDesktopSwipe()
+            }
+            return true
+        }
 
         if let target = calibrationTarget,
            let physicalIndex = event.physicalIndex,
@@ -635,13 +719,126 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return true
         }
 
-        guard !detectionMode,
-              let action = mappings[event.button],
-              action != .none else {
+        if desktopSwipeCanRun(for: event.button) {
+            beginDesktopSwipe(button: event.button)
             return true
         }
+
+        guard !detectionMode, let action = mappings[event.button] else { return true }
+        if let number = action.emulatedNavigationButton(forButton: event.button) {
+            if eventTap != nil {
+                auxiliaryMouseButton(number: number)
+            }
+            return true
+        }
+        guard action != .systemDefault else { return true }
         perform(action)
         return true
+    }
+
+    private func desktopSwipeCanRun(for button: Int) -> Bool {
+        button == desktopSwipeButton
+            && !detectionMode
+            && calibrationTarget == nil
+            && !freeScrollTracking
+            && !systemSleeping
+            && !isTerminating
+            && eventTap != nil
+    }
+
+    private func runMappedActionOrNativeClick(for button: Int) {
+        let action = mappings[button] ?? .systemDefault
+        if let number = action.emulatedNavigationButton(forButton: button) {
+            auxiliaryMouseButton(number: number)
+        } else if !action.replaysNativeClickOnShortPress {
+            perform(action)
+        }
+    }
+
+    private func beginDesktopSwipe(button: Int) {
+        guard desktopSwipeGesture == nil else { return }
+        var gesture = DesktopSwipeGesture(trigger: button, activationDistance: desktopSwipeDistance)
+        guard gesture.button(button, pressed: true) == .began else { return }
+        desktopSwipeGesture = gesture
+        startDesktopSwipeMovementTap()
+        if swipeEventTap == nil {
+            desktopSwipeGesture = nil
+            runMappedActionOrNativeClick(for: button)
+        }
+    }
+
+    private func finishDesktopSwipe() {
+        guard var gesture = desktopSwipeGesture,
+              let button = desktopSwipeButton else { return }
+        let output = gesture.button(button, pressed: false)
+        desktopSwipeGesture = nil
+        stopDesktopSwipeMovementTap()
+        if output == .tap {
+            runMappedActionOrNativeClick(for: button)
+        }
+    }
+
+    private func cancelDesktopSwipe() {
+        desktopSwipeGesture?.cancel()
+        desktopSwipeGesture = nil
+        stopDesktopSwipeMovementTap()
+    }
+
+    private func moveDesktopSwipe(dx: Double, dy: Double) {
+        guard var gesture = desktopSwipeGesture else { return }
+        let output = gesture.move(dx: dx, dy: dy)
+        desktopSwipeGesture = gesture
+        guard let action = Action(swipe: output, reversed: desktopSwipeReversed) else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.perform(action)
+        }
+    }
+
+    private func startDesktopSwipeMovementTap() {
+        guard swipeEventTap == nil, AXIsProcessTrusted() else { return }
+        let mask = (1 << CGEventType.mouseMoved.rawValue)
+            | (1 << CGEventType.otherMouseDragged.rawValue)
+        let callback: CGEventTapCallBack = { _, type, event, userInfo in
+            guard let userInfo else { return Unmanaged.passUnretained(event) }
+            let app = Unmanaged<AppDelegate>.fromOpaque(userInfo).takeUnretainedValue()
+            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                app.cancelDesktopSwipe()
+                return Unmanaged.passUnretained(event)
+            }
+            if event.getIntegerValueField(.eventSourceUserData)
+                == AppDelegate.syntheticMouseEventMarker {
+                return Unmanaged.passUnretained(event)
+            }
+            app.moveDesktopSwipe(
+                dx: event.getDoubleValueField(.mouseEventDeltaX),
+                dy: event.getDoubleValueField(.mouseEventDeltaY)
+            )
+            return Unmanaged.passUnretained(event)
+        }
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .tailAppendEventTap,
+            options: .listenOnly,
+            eventsOfInterest: CGEventMask(mask),
+            callback: callback,
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else { return }
+        swipeEventTap = tap
+        swipeRunLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), swipeRunLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    private func stopDesktopSwipeMovementTap() {
+        if let swipeRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), swipeRunLoopSource, .commonModes)
+        }
+        if let swipeEventTap {
+            CGEvent.tapEnable(tap: swipeEventTap, enable: false)
+            CFMachPortInvalidate(swipeEventTap)
+        }
+        swipeEventTap = nil
+        swipeRunLoopSource = nil
     }
 
     private func startEventTap() {
@@ -661,6 +858,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 app.resetFreeScrollTracking()
+                app.cancelDesktopSwipe()
                 if let eventTap = app.eventTap {
                     CGEvent.tapEnable(tap: eventTap, enable: true)
                 }
@@ -706,6 +904,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func stopEventTap() {
         resetFreeScrollTracking()
+        cancelDesktopSwipe()
         if let runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         }
@@ -886,6 +1085,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ))
 
         if pressed {
+            cancelDesktopSwipe()
             resetFreeScrollTracking()
             freeScrollTracking = true
             freeScrollDidMove = false
@@ -894,6 +1094,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             freeScrollDisplacementY = 0
             freeScrollPendingX = 0
             freeScrollPendingY = 0
+            startFreeScrollMovementTap()
             return nil
         }
 
@@ -963,7 +1164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func performShortMiddleClick(at location: CGPoint) {
         guard freeScrollEnabled, !systemSleeping, !isTerminating else { return }
-        guard let action = mappings[3], action != .none else {
+        guard let action = mappings[3], !action.replaysNativeClickOnShortPress else {
             postNativeMiddleClick(at: location)
             return
         }
@@ -1008,7 +1209,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         event.post(tap: .cghidEventTap)
     }
 
+    private func startFreeScrollMovementTap() {
+        guard freeScrollEventTap == nil, AXIsProcessTrusted() else { return }
+        let mask = (1 << CGEventType.mouseMoved.rawValue)
+            | (1 << CGEventType.otherMouseDragged.rawValue)
+        let callback: CGEventTapCallBack = { _, type, event, userInfo in
+            guard let userInfo else { return Unmanaged.passUnretained(event) }
+            let app = Unmanaged<AppDelegate>.fromOpaque(userInfo).takeUnretainedValue()
+            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                app.resetFreeScrollTracking()
+                return Unmanaged.passUnretained(event)
+            }
+            if event.getIntegerValueField(.eventSourceUserData)
+                == AppDelegate.syntheticMouseEventMarker {
+                return Unmanaged.passUnretained(event)
+            }
+            return app.handleFreeScrollDrag(event)
+        }
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: CGEventMask(mask),
+            callback: callback,
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else { return }
+        freeScrollEventTap = tap
+        freeScrollRunLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), freeScrollRunLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    private func stopFreeScrollMovementTap() {
+        if let freeScrollRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), freeScrollRunLoopSource, .commonModes)
+        }
+        if let freeScrollEventTap {
+            CGEvent.tapEnable(tap: freeScrollEventTap, enable: false)
+            CFMachPortInvalidate(freeScrollEventTap)
+        }
+        freeScrollEventTap = nil
+        freeScrollRunLoopSource = nil
+    }
+
     private func resetFreeScrollTracking() {
+        stopFreeScrollMovementTap()
         freeScrollGeneration += 1
         freeScrollFlushWorkItem?.cancel()
         freeScrollFlushWorkItem = nil
@@ -1038,7 +1283,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             timestamp: ProcessInfo.processInfo.systemUptime,
             physicalIndex: nil
         ))
-        let shouldConsume = !detectionMode && mappings[button] != Action.none
+        let isSwipeTrigger = button == desktopSwipeButton && calibrationTarget == nil
+        let action = mappings[button]
+        let shouldConsume = !detectionMode
+            && ((action?.blocksNativeInput ?? false)
+                || action?.emulatedNavigationButton(forButton: button) != nil
+                || isSwipeTrigger)
         return shouldConsume ? nil : Unmanaged.passUnretained(event)
     }
 
@@ -1049,18 +1299,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
         }
-        guard action == .none || ensureAccessibilityForActions() else { return }
+        guard action == .systemDefault || action == .noAction || ensureAccessibilityForActions() else { return }
         switch action {
-        case .none: break
+        case .systemDefault, .noAction: break
         case .historyBack: auxiliaryMouseButton(number: 3)
         case .historyForward: auxiliaryMouseButton(number: 4)
         case .missionControl: shortcut(keyCode: 126, flags: .maskControl)
-        case .appExpose: shortcut(keyCode: 125, flags: .maskControl)
+        case .appExpose:
+            if !DockNotification.toggleAppExpose() {
+                shortcut(keyCode: 125, flags: .maskControl)
+            }
         case .nextApp: shortcut(keyCode: 48, flags: .maskCommand)
         case .previousApp: shortcut(keyCode: 48, flags: [.maskCommand, .maskShift])
         case .leftSpace: shortcut(keyCode: 123, flags: .maskControl)
         case .rightSpace: shortcut(keyCode: 124, flags: .maskControl)
-        case .showDesktop: shortcut(keyCode: 103, flags: [])
+        case .showDesktop:
+            if !DockNotification.toggleShowDesktop() {
+                shortcut(keyCode: 103, flags: [])
+            }
         }
     }
 
@@ -1123,14 +1379,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func shortcut(keyCode: CGKeyCode, flags: CGEventFlags) {
         guard let down = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true),
               let up = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: false) else { return }
-        down.flags = flags
-        up.flags = flags
+        let needsFunctionFlag = (123...126).contains(Int(keyCode)) || keyCode == 103
+        let eventFlags = needsFunctionFlag ? flags.union(.maskSecondaryFn) : flags
+        down.flags = eventFlags
+        up.flags = eventFlags
         down.post(tap: .cghidEventTap)
         usleep(35_000)
         up.post(tap: .cghidEventTap)
     }
 
     @objc private func toggleDetection() {
+        cancelDesktopSwipe()
         detectionMode.toggle()
         if detectionMode {
             detectedButtons.removeAll()
@@ -1164,6 +1423,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 startCalibration: { [weak self] button in
                     self?.startCalibration(for: button)
                 },
+                getDesktopSwipeButton: { [weak self] in self?.desktopSwipeButton },
+                setDesktopSwipeButton: { [weak self] button in
+                    self?.setDesktopSwipeButton(button)
+                },
+                getDesktopSwipeReversed: { [weak self] in self?.desktopSwipeReversed ?? false },
+                setDesktopSwipeReversed: { [weak self] reversed in
+                    self?.setDesktopSwipeReversed(reversed)
+                },
+                getDesktopSwipeDistance: { [weak self] in
+                    self?.desktopSwipeDistance ?? DesktopSwipeGesture.defaultActivationDistance
+                },
+                setDesktopSwipeDistance: { [weak self] distance in
+                    self?.setDesktopSwipeDistance(distance)
+                },
+                readPollingRate: { [weak self] completion in
+                    self?.readPollingRate(completion: completion)
+                },
+                setPollingRate: { [weak self] rate, completion in
+                    self?.setPollingRate(rate, completion: completion)
+                },
                 readDPI: { [weak self] completion in
                     guard let self else { return }
                     self.readCurrentDPI(completion: completion)
@@ -1188,6 +1467,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             unavailable.runModal()
             return
         }
+        cancelDesktopSwipe()
         calibrationTarget = button
         let alert = NSAlert()
         calibrationAlert = alert
@@ -1235,6 +1515,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hoverRecoveryWorkItem = nil
         hoverRecoveryBurstGeneration += 1
         resetFreeScrollTracking()
+        cancelDesktopSwipe()
         appendButtonSpyDiagnostic(L10n.string("diagnostic.macOSWillSleep"))
         stopButtonSpyAndRestoreMode(waitUntilExit: false)
         rebuildMenu()
@@ -1251,6 +1532,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hoverRecoveryWorkItem = nil
         hoverRecoveryBurstGeneration += 1
         resetFreeScrollTracking()
+        cancelDesktopSwipe()
         appendButtonSpyDiagnostic(L10n.string("diagnostic.sessionInactive"))
         stopButtonSpyAndRestoreMode(waitUntilExit: false)
         rebuildMenu()
@@ -1401,6 +1683,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func stopButtonSpyAndRestoreMode(waitUntilExit: Bool = true) {
+        cancelDesktopSwipe()
         reconnectWorkItem?.cancel()
         reconnectWorkItem = nil
         reconnectStatus = nil
@@ -1530,14 +1813,78 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ) {
         let normalized = max(100, min(25_600, 100 + Int(round(Double(value - 100) / 50.0)) * 50))
         var arguments = ["dpi", "set", "\(normalized)"]
-        if persist, selectedDevice?.supportsPersistentDPI != false {
+        if persist {
             arguments.append("--persist")
         }
-        performDPIOperation(arguments: arguments, completion: completion)
+        performDPIOperation(arguments: arguments) { result in
+            if case .success(let applied) = result {
+                UserDefaults.standard.set(applied, forKey: Self.dpiPreferenceKey)
+            }
+            completion(result)
+        }
+    }
+
+    private func readPollingRate(completion: @escaping (Result<Int, Error>) -> Void) {
+        performDPIOperation(arguments: ["poll", "get"], valueKey: "rate_hz", completion: completion)
+    }
+
+    private func setPollingRate(_ rate: Int, completion: @escaping (Result<Int, Error>) -> Void) {
+        performDPIOperation(arguments: ["poll", "set", "\(rate)"], valueKey: "rate_hz") { result in
+            if case .success(let applied) = result {
+                UserDefaults.standard.set(applied, forKey: Self.pollingRatePreferenceKey)
+            }
+            completion(result)
+        }
+    }
+
+    private func applySavedDPI(devicePath: String, in directory: URL) {
+        let saved = UserDefaults.standard.integer(forKey: Self.dpiPreferenceKey)
+        guard (100...25_600).contains(saved) else { return }
+        let base = ["--device", devicePath, "--output", "json", "dpi"]
+        do {
+            let current = try runHelper(base + ["get"], in: directory)
+            if let data = current.data(using: .utf8),
+               let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               json["dpi"] as? Int == saved {
+                return
+            }
+            _ = try runHelper(base + ["set", "\(saved)"], in: directory)
+        } catch {
+            DispatchQueue.main.async {
+                self.appendButtonSpyDiagnostic(L10n.format(
+                    "diagnostic.dpiNotRestored",
+                    error.localizedDescription
+                ))
+            }
+        }
+    }
+
+    private func applySavedPollingRate(devicePath: String, in directory: URL) {
+        let defaults = UserDefaults.standard
+        let saved = defaults.integer(forKey: Self.pollingRatePreferenceKey)
+        guard Self.pollingRates.contains(saved) else { return }
+        let base = ["--device", devicePath, "--output", "json", "poll"]
+        do {
+            let current = try runHelper(base + ["get"], in: directory)
+            if let data = current.data(using: .utf8),
+               let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               json["rate_hz"] as? Int == saved {
+                return
+            }
+            _ = try runHelper(base + ["set", "\(saved)"], in: directory)
+        } catch {
+            DispatchQueue.main.async {
+                self.appendButtonSpyDiagnostic(L10n.format(
+                    "diagnostic.pollingNotRestored",
+                    error.localizedDescription
+                ))
+            }
+        }
     }
 
     private func performDPIOperation(
         arguments: [String],
+        valueKey: String = "dpi",
         completion: @escaping (Result<Int, Error>) -> Void
     ) {
         guard !dpiOperationInProgress else {
@@ -1563,7 +1910,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 )
                 guard let data = output.data(using: .utf8),
                       let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let dpi = json["dpi"] as? Int else {
+                      let dpi = json[valueKey] as? Int else {
                     throw NSError(
                         domain: "G502StageMouse.DPI",
                         code: 21,
@@ -1607,6 +1954,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             do {
                 let support = try self.applicationSupportURL()
                 let receiver = try self.receiverSelection(in: support)
+                self.applySavedPollingRate(devicePath: receiver.path, in: support)
+                self.applySavedDPI(devicePath: receiver.path, in: support)
                 let helper = try self.helperURL()
                 let process = Process()
                 let output = Pipe()
@@ -1639,6 +1988,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             self.buttonSpyStartInProgress = false
                         }
                         if !expected {
+                            self.cancelDesktopSwipe()
                             self.appendButtonSpyDiagnostic(L10n.format(
                                 "diagnostic.channelStopped",
                                 Int(process.terminationStatus)
@@ -1802,7 +2152,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func refreshBatteryUI() {
         let wired = selectedDevice?.hasBattery == false && connectedDevice.connected
-        visualConfig?.setDPIPersistenceAvailable(selectedDevice?.supportsPersistentDPI != false)
         visualConfig?.updateBattery(
             text: batteryDetailText(),
             charging: batteryCharging,
@@ -2037,6 +2386,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hoverRecoveryWorkItem = nil
         hoverRecoveryBurstGeneration += 1
         resetFreeScrollTracking()
+        cancelDesktopSwipe()
         cancelWakeRecovery()
         stopEventTap()
         stopHoverEventTap()

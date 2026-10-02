@@ -1,5 +1,5 @@
 use clap::{Args, Subcommand};
-use hidpp_core::features::{AdjustableDpi, OnboardProfiles};
+use hidpp_core::features::{AdjustableDpi, DpiSlotSource, OnboardMode, OnboardProfiles};
 use serde::Serialize;
 
 use crate::context::DeviceContext;
@@ -83,6 +83,11 @@ pub fn handle_dpi(
         } => {
             ctx.device_info().validate_dpi(*value)?;
 
+            if *persist {
+                OnboardProfiles::set_mode(ctx.device(), OnboardMode::Onboard)
+                    .map_err(|e| format!("Could not switch to onboard mode: {e}"))?;
+            }
+
             let sp = Spinner::new(format!("Setting DPI to {value}…"), output);
             match AdjustableDpi::set_dpi(ctx.device(), *sensor, *value) {
                 Ok(()) => {}
@@ -92,7 +97,12 @@ pub fn handle_dpi(
                 }
             }
             if *persist {
-                OnboardProfiles::set_active_profile_dpi(ctx.device(), *value).map_err(|e| {
+                let source = if ctx.device_info().pid == 0xC099 {
+                    DpiSlotSource::CurrentIndex
+                } else {
+                    DpiSlotSource::ProfileDefault
+                };
+                OnboardProfiles::set_profile_dpi(ctx.device(), *value, source).map_err(|e| {
                     format!("DPI changed for this session but could not be saved: {e}")
                 })?;
             }

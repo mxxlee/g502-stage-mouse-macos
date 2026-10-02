@@ -46,6 +46,7 @@ people can inspect it, adapt it, and improve it.
 - Automatic detector recovery after sleep, unlock, and reconnect.
 - Event-driven macOS hover stabilizer with no idle polling loop.
 - Windows-style vertical and horizontal free-scroll while holding the wheel.
+- Optional hold-and-move gesture on one G button to switch Spaces.
 - Local, checksum-verified update channel for development builds.
 
 | Button | Physical control | Default action |
@@ -91,16 +92,61 @@ Enable **Free-scroll while holding the wheel**, hold the middle button, and move
 the mouse. Motion is converted to smooth vertical and horizontal scrolling.
 High-frequency events are coalesced over 8 ms to reduce WindowServer pressure.
 
-A movement under 3 points remains a short click: the configured G3 action runs
-normally. If G3 is set to **No action**, the app replays a native middle click.
+A movement under 10 points remains a short click: the configured G3 action runs
+normally. If G3 is set to **System Default**, the app replays a native middle
+click. **No Action** blocks the button entirely.
+
+## Desktop swipe
+
+Choose one trigger button, G4 to G9, in **Desktop swipe** in the visual
+configuration window. Hold it and move the mouse left or right to switch to the
+next or previous Space, like a trackpad swipe: moving left goes to the next
+Space and moving right goes to the previous one. Check **Reverse direction** to
+swap them. Each hold switches once. Vertical or small movements
+switch nothing. The **Swipe distance** slider sets how far to move, from 40 to
+300 points (default 120).
+
+A short press with under 10 points of net movement keeps the button's normal action.
+If G4 or G5 is set to **System Default**, a short press replays its native back
+or forward click. With **No Action**, a short press does nothing. G3 stays reserved for free-scroll. The default is Off.
+
+While the app runs, **System Default** on G4 and G5 means the app itself sends
+Back and Forward, because the mouse stops sending G5's native click in its
+button-capture mode.
+
+Switching uses `Control`+Left and `Control`+Right, so those Mission Control
+keyboard shortcuts must be enabled in System Settings. The app needs
+Accessibility and Input Monitoring. On the USB-only G502 X (`C099`), the feature
+depends on its live button press and release stream, which has had limited
+testing.
+
+The configuration window also has a **Polling rate** setting (125, 250, 500 or
+1000 Hz). If windows lag while you drag them, try 500 Hz. The app saves your choice and re-applies it after each reconnect
+or wake, because the mouse forgets it when the Mac sleeps.
+
+## Back up the mouse's profiles
+
+Saving to the onboard profile writes the mouse's flash memory. Before you use
+it on a G502 X, save a byte-for-byte copy with the bundled helper:
+
+```sh
+opengcontrol profile backup-raw ~/Documents/g502x-backup.json
+opengcontrol profile restore-raw ~/Documents/g502x-backup.json --yes
+```
+
+`restore-raw` checks the device, sector size and CRCs, rewrites only sectors
+that differ, and verifies each one by read-back. Keep the file somewhere safe.
+When the app quits it returns the mouse to onboard mode, so the stored profile
+applies again.
 
 ## Compatibility
 
 - macOS 13 or later;
 - Apple Silicon;
-- G502 X (USB-only, no wireless): `046D:C099`. DPI changes apply to the current
-  session only; saving DPI to the mouse is unavailable, and there is no battery
-  display;
+- G502 X (USB-only, no wireless): `046D:C099`. There is no battery display. The
+  app remembers your DPI and polling rate and re-applies them on every connect.
+  **Save to onboard profile** writes the DPI to the mouse's active profile; make
+  a raw backup first (see below);
 - G502 X LIGHTSPEED connected by USB: `046D:C098`;
 - LIGHTSPEED receiver: `046D:C547`;
 - POWERPLAY: `046D:C53A`.

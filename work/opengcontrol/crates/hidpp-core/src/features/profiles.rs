@@ -568,6 +568,13 @@ impl OnboardProfiles {
         Ok(Self::get_profile_headers(device)?.len() as u8)
     }
 
+    /// The profile directory as `(data sector, enabled)` pairs, in profile order.
+    pub fn profile_headers<T: HidTransport>(
+        device: &HidppDevice<T>,
+    ) -> Result<Vec<(u16, u8)>, HidppError> {
+        Self::get_profile_headers(device)
+    }
+
     /// The data sector backing profile `index` (0-based), read from the profile
     /// directory. On a factory-fresh device this may be a read-only ROM sector
     /// (`>= 0x0100`); [`Self::write_raw_sector`] refuses to write those.
@@ -754,11 +761,28 @@ impl OnboardProfiles {
         Ok(())
     }
 
-    /// Persist a DPI value into the active slot of the active sector-model profile.
-    /// This patches only the two DPI bytes, then recomputes and verifies the sector CRC.
+    /// Function 0xB — getCurrentDpiIndex. The DPI slot the mouse is running on, which
+    /// some devices remember across power loss independently of the profile's default.
+    pub fn current_dpi_index<T: HidTransport>(device: &HidppDevice<T>) -> Result<u8, HidppError> {
+        let response = device.call_feature_short(FeatureCode::OnboardProfiles, 0xB, [0; 4])?;
+        Ok(response.params()[0])
+    }
+
+    /// Persist a DPI value into the profile's default slot of the active sector-model
+    /// profile. This patches only the two DPI bytes, then recomputes and verifies the
+    /// sector CRC.
     pub fn set_active_profile_dpi<T: HidTransport>(
         device: &HidppDevice<T>,
         dpi: u16,
+    ) -> Result<(), HidppError> {
+        Self::set_profile_dpi(device, dpi, DpiSlotSource::ProfileDefault)
+    }
+
+    /// Persist a DPI value into the slot chosen by `source` of the active profile.
+    pub fn set_profile_dpi<T: HidTransport>(
+        device: &HidppDevice<T>,
+        dpi: u16,
+        source: DpiSlotSource,
     ) -> Result<(), HidppError> {
         let info = Self::get_info(device)?;
         if info.memory_model != 0x01 {
@@ -770,12 +794,11 @@ impl OnboardProfiles {
         let active = Self::get_active_profile(device)?;
         let sector = Self::profile_data_sector(device, active)?;
         let mut data = Self::read_sector(device, sector, info.profile_size)?;
-        let slot = data.get(1).copied().unwrap_or(0) as usize;
-        if slot >= 5 {
-            return Err(HidppError::Transport(format!(
-                "active DPI slot {slot} is outside 0..5"
-            )));
-        }
+        let current = match source {
+            DpiSlotSource::CurrentIndex => Some(Self::current_dpi_index(device)?),
+            DpiSlotSource::ProfileDefault => None,
+        };
+        let slot = choose_dpi_slot(source, &data, current).map_err(HidppError::Transport)?;
         let offset = 3 + slot * 2;
         if offset + 2 > data.len() {
             return Err(HidppError::Transport(
@@ -962,6 +985,32 @@ impl OnboardProfiles {
 /// (`kind = 0x01`, code = bitmask) and function (`kind = 0x90`, code = function id) records;
 /// `None` for records that don't name a button unambiguously (keys, macros, empty) — those
 /// don't appear in factory defaults.
+/// Which DPI slot of a profile a persistent DPI write should replace.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DpiSlotSource {
+    /// The slot named by the profile's default-DPI byte.
+    ProfileDefault,
+    /// The slot the mouse is currently running on.
+    CurrentIndex,
+}
+
+fn choose_dpi_slot(
+    source: DpiSlotSource,
+    profile: &[u8],
+    current_index: Option<u8>,
+) -> Result<usize, String> {
+    let slot = match source {
+        DpiSlotSource::ProfileDefault => profile.get(1).copied().unwrap_or(0),
+        DpiSlotSource::CurrentIndex => {
+            current_index.ok_or("the current DPI index is not available")?
+        }
+    } as usize;
+    if slot >= 5 {
+        return Err(format!("DPI slot {slot} is outside 0..5"));
+    }
+    Ok(slot)
+}
+
 fn button_identity(rec: &[u8]) -> Option<(u8, u8)> {
     match rec.first()? >> 4 {
         0x9 => Some((0x90, rec[1])),
@@ -1602,6 +1651,37 @@ mod tests {
         "410055004c00540000000000000000000000000000000000000000000000",
         "0000000000000000ffffffffffffffffffffffffffffffffffffffffffff006094",
     );
+
+    #[test]
+    fn dpi_slot_follows_profile_default_byte() {
+        let data = [1u8, 2, 0, 0, 0];
+        assert_eq!(
+            choose_dpi_slot(DpiSlotSource::ProfileDefault, &data, Some(1)),
+            Ok(2)
+        );
+    }
+
+    #[test]
+    fn dpi_slot_follows_current_index_when_requested() {
+        let data = [1u8, 2, 0, 0, 0];
+        assert_eq!(
+            choose_dpi_slot(DpiSlotSource::CurrentIndex, &data, Some(1)),
+            Ok(1)
+        );
+    }
+
+    #[test]
+    fn dpi_slot_needs_a_current_index_when_requested() {
+        let data = [1u8, 2, 0, 0, 0];
+        assert!(choose_dpi_slot(DpiSlotSource::CurrentIndex, &data, None).is_err());
+    }
+
+    #[test]
+    fn dpi_slot_rejects_out_of_range_indices() {
+        let data = [1u8, 7, 0, 0, 0];
+        assert!(choose_dpi_slot(DpiSlotSource::ProfileDefault, &data, None).is_err());
+        assert!(choose_dpi_slot(DpiSlotSource::CurrentIndex, &data, Some(5)).is_err());
+    }
 
     fn hex(s: &str) -> Vec<u8> {
         (0..s.len())

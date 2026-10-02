@@ -28,8 +28,6 @@ enum VerifyMouseDevice {
             precondition(device.hasBattery && device.supportsLegacyProfileRestore)
         }
 
-        precondition(MouseDevice.g502xWired.supportsPersistentDPI == false)
-        precondition(MouseDevice.lightspeedWired.supportsPersistentDPI)
         precondition(MouseDevice.g502xWired.calibrationKey(button: 3) == "g502x.wired.physicalIndex.g3")
         precondition(MouseDevice.lightspeedReceiver.calibrationKey(button: 3) == "g502x.physicalIndex.g3")
         precondition(MouseDevice.lightspeedWired.calibrationKey(button: 9) == "g502x.physicalIndex.g9")

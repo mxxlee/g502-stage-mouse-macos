@@ -78,6 +78,12 @@ fn emit_battery(ctx: &DeviceContext, output: OutputFormat) -> Result<(), String>
     io::stdout().flush().map_err(|error| error.to_string())
 }
 
+/// The mouse powers up in host mode, where it ignores its stored profile. Leave it in
+/// onboard mode so the stored profile applies once the app stops listening.
+fn mode_after_listening(_previous: OnboardMode) -> OnboardMode {
+    OnboardMode::Onboard
+}
+
 fn enter_host_mode<T: HidTransport>(
     device: &HidppDevice<T>,
 ) -> Result<(FeatureIndex, u8, OnboardMode), String> {
@@ -101,11 +107,11 @@ pub fn handle_buttons(
     // Lire la batterie avant d'activer MouseButtonSpy. Une requête synchrone
     // pendant l'écoute pourrait consommer puis ignorer une notification 0x8110.
     if let Err(error) = emit_battery(ctx, output) {
-        let _ = OnboardProfiles::set_mode(ctx.device(), previous_mode);
+        let _ = OnboardProfiles::set_mode(ctx.device(), mode_after_listening(previous_mode));
         return Err(error);
     }
     if let Err(error) = MouseButtonSpy::start(ctx.device()) {
-        let _ = OnboardProfiles::set_mode(ctx.device(), previous_mode);
+        let _ = OnboardProfiles::set_mode(ctx.device(), mode_after_listening(previous_mode));
         return Err(error.to_string());
     }
 
@@ -171,7 +177,8 @@ pub fn handle_buttons(
     };
 
     let _ = MouseButtonSpy::stop(ctx.device());
-    let restore_result = OnboardProfiles::set_mode(ctx.device(), previous_mode);
+    let restore_result =
+        OnboardProfiles::set_mode(ctx.device(), mode_after_listening(previous_mode));
     match (result, restore_result) {
         (Err(error), _) => Err(error),
         (Ok(()), Err(error)) => Err(error.to_string()),
@@ -243,6 +250,18 @@ mod tests {
             buf[..response.len()].copy_from_slice(&response);
             Ok(response.len())
         }
+    }
+
+    #[test]
+    fn listening_always_ends_in_onboard_mode() {
+        assert_eq!(
+            mode_after_listening(OnboardMode::Host),
+            OnboardMode::Onboard
+        );
+        assert_eq!(
+            mode_after_listening(OnboardMode::Onboard),
+            OnboardMode::Onboard
+        );
     }
 
     #[test]

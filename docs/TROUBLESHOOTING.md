@@ -30,7 +30,7 @@ or click. Those guards are intentional and useful in a bug report.
 
 ## Middle click triggers instead of scrolling
 
-Free-scroll activates only after the pointer moves at least 3 points while the
+Free-scroll activates only after the pointer moves at least 10 points while the
 wheel is held. Confirm **Free-scroll while holding the wheel** is enabled.
 
 ## macOS blocks the app

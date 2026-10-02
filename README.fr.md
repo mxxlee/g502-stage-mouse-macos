@@ -43,6 +43,7 @@ pour que chacun puisse l'inspecter, l'adapter et l'améliorer.
 - Association visuelle des boutons physiques G3 à G9.
 - Mission Control, App Exposé, bureau, Spaces et changement d'application.
 - Navigation arrière et avant native dans les applications compatibles.
+- Geste optionnel maintenir puis déplacer, sur un bouton G, pour changer d’espace.
 - Communication HID++ directe sans dépendance à G HUB pendant l'utilisation.
 - G502 X filaire, récepteur LIGHTSPEED et POWERPLAY.
 - Batterie, état de charge et réglage du DPI de 100 à 25 600.
@@ -95,17 +96,65 @@ et déplacez la souris. Le mouvement devient un défilement fluide vertical et
 horizontal. Les événements très fréquents sont regroupés sur 8 ms pour réduire
 la pression sur WindowServer.
 
-Sous 3 points de déplacement, le geste reste un clic court et l'action G3
-s'exécute normalement. Si G3 est réglé sur **Aucune action**, un clic molette
-natif est rejoué.
+Sous 10 points de déplacement, le geste reste un clic court et l'action G3
+s'exécute normalement. Si G3 est réglé sur **Défaut du système**, un clic molette
+natif est rejoué. **Aucune action** bloque entièrement le bouton.
+
+## Balayage de bureau
+
+Choisissez un bouton déclencheur, de G4 à G9, dans **Balayage de bureau** de la
+fenêtre de configuration visuelle. Maintenez-le et déplacez la souris vers la
+gauche ou la droite pour changer d’espace, comme sur un trackpad : vers la
+gauche pour l’espace suivant, vers la droite pour l’espace précédent. **Inverser le sens** échange les deux. Chaque
+maintien change d’espace une seule fois. Un mouvement vertical ou trop petit ne
+change rien. Le curseur **Distance du balayage** règle la distance à parcourir,
+de 40 à 300 points (120 par défaut).
+
+Un appui court, avec moins de 10 points de déplacement net, garde l’action normale du
+bouton. Si G4 ou G5 est réglé sur **Défaut du système**, un appui court rejoue son
+clic natif arrière ou avant. G3 reste réservé au défilement libre. Le réglage
+par défaut est Désactivé.
+
+Tant que l’app tourne, **Défaut du système** sur G4 et G5 signifie que l’app
+envoie elle-même Retour arrière et Retour avant, car la souris n’envoie plus le
+clic natif de G5 en mode de capture des boutons.
+
+Le changement d’espace utilise `Contrôle`+Gauche et `Contrôle`+Droite : ces
+raccourcis de Mission Control doivent être activés dans Réglages Système.
+L’app a besoin d’Accessibilité et de Surveillance de l’entrée. Sur la G502 X
+USB uniquement (`C099`), la fonction dépend de son flux réel d’appui et de
+relâchement des boutons, qui a été peu testé.
+
+La fenêtre de configuration propose aussi une **Fréquence d’interrogation**
+(125, 250, 500 ou 1000 Hz). Si les fenêtres traînent quand vous les déplacez,
+essayez 500 Hz. L’app mémorise votre choix et le réapplique après chaque
+reconnexion ou réveil, car la souris l’oublie quand le Mac se met en veille.
+
+## Sauvegarder les profils de la souris
+
+L’enregistrement dans le profil embarqué écrit dans la mémoire flash de la
+souris. Avant de l’utiliser sur une G502 X, faites une copie octet par octet
+avec l’outil fourni :
+
+```sh
+opengcontrol profile backup-raw ~/Documents/g502x-sauvegarde.json
+opengcontrol profile restore-raw ~/Documents/g502x-sauvegarde.json --yes
+```
+
+`restore-raw` vérifie l’appareil, la taille des secteurs et les CRC, ne réécrit
+que les secteurs différents et contrôle chaque écriture par relecture. Gardez le
+fichier en lieu sûr. Quand l’app se ferme, elle remet la souris en mode
+embarqué : le profil enregistré s’applique alors de nouveau.
 
 ## Compatibilité
 
 - macOS 13 ou version ultérieure ;
 - Apple Silicon ;
-- G502 X (USB uniquement, sans sans-fil) : `046D:C099`. Les changements de DPI
-  ne s’appliquent qu’à la session en cours ; l’enregistrement du DPI dans la
-  souris n’est pas disponible, et aucune batterie n’est affichée ;
+- G502 X (USB uniquement, sans sans-fil) : `046D:C099`. Aucune batterie n’est
+  affichée. L’app mémorise votre DPI et votre fréquence d’interrogation et les
+  réapplique à chaque connexion. **Enregistrer dans le profil embarqué** écrit
+  le DPI dans le profil actif de la souris ; faites d’abord une sauvegarde brute
+  (voir ci-dessous) ;
 - G502 X LIGHTSPEED reliée en USB : `046D:C098` ;
 - récepteur LIGHTSPEED : `046D:C547` ;
 - POWERPLAY : `046D:C53A`.

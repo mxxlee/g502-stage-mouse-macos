@@ -1,4 +1,5 @@
-"action.none" = "No Action";
+"action.systemDefault" = "System Default";
+"action.noAction" = "No Action";
 "action.historyBack" = "Back";
 "action.historyForward" = "Forward";
 "action.missionControl" = "Mission Control (swipe up with three fingers)";
@@ -33,6 +34,11 @@
 "menu.restartDetection" = "Restart Detection";
 "menu.checkForUpdates" = "Check for Updates…";
 "menu.quit" = "Quit";
+"window.menu" = "Window";
+"window.close" = "Close Window";
+"window.minimize" = "Minimize";
+"window.zoom" = "Zoom";
+"window.fullScreen" = "Enter Full Screen";
 
 "status.sleeping" = "Paused — wakes automatically";
 "status.buttonsNeedAccessibility" = "Buttons detected — allow Accessibility";
@@ -143,7 +149,6 @@
 "visual.detection.waiting" = "✓ Waiting for detection…";
 "visual.detection.action" = "✓ G%d · %@";
 "visual.detection.detected" = "✓ G%d detected · %@";
-"visual.detection.noAction" = "no action";
 "visual.button.g3" = "G3 · Wheel";
 "visual.button.g4" = "G4 · Back";
 "visual.button.g5" = "G5 · Forward";
@@ -152,6 +157,12 @@
 "visual.button.g8" = "G8 · DPI +";
 "visual.button.g9" = "G9 · Profile";
 "visual.button.generic" = "G%d";
+"swipe.title" = "Desktop swipe";
+"swipe.off" = "Off";
+"swipe.help" = "Hold the selected button and move left or right to switch Spaces; a short press keeps its normal action.";
+"swipe.distance" = "Swipe distance";
+"swipe.distance.value" = "%d pt";
+"swipe.reverse" = "Reverse direction";
 
 "dpi.title" = "Sensitivity";
 "dpi.unit" = "DPI";
@@ -173,6 +184,15 @@
 "dpi.error.title" = "DPI Error";
 "dpi.error.busy" = "A DPI operation is already in progress.";
 "dpi.error.unreadableResponse" = "Could not read DPI response: %@";
+"polling.title" = "Polling rate";
+"polling.value" = "%d Hz";
+"polling.help" = "Lower this to 500 Hz if windows lag while you drag them.";
+"polling.reading" = "Reading…";
+"polling.unavailable" = "Polling rate unavailable";
+"polling.applied" = "%d Hz ✓";
+"polling.failed" = "Could not change the polling rate";
+"diagnostic.pollingNotRestored" = "Polling rate not restored: %@";
+"diagnostic.dpiNotRestored" = "DPI not restored: %@";
 
 "device.logitechReceiver" = "Logitech receiver";
 "device.g502X" = "G502 X";
